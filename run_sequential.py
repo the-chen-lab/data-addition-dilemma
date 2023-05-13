@@ -31,6 +31,7 @@ def get_mimic_sequential_data():
      - years:
      - groups: 
     """
+    return
     
 def get_avail_idx(num, year_idx_dict, ignore_idx, avail_years):
     """
@@ -169,7 +170,9 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, train_set_siz
 def run_sequential_wrapper(data, model, n):
     if data == 'mimic':
         X, y, years, groups = get_mimic_sequential_data()
-
+    elif data == 'yelp':
+        X, y, years, groups = get_yelp_sequential_data()
+        
     run_sequential(X, y, years, groups, model, n, data)
     
 if __name__ == '__main__':
