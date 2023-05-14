@@ -19,6 +19,56 @@ from sklearn.svm import SVC
 
 import xgboost as xgb
 
+def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
+    '''
+    Takes in yelp data source files and outputs list of csv files of data sources. 
+    
+    Format of input files from yelp download:
+    - yelp_academic_dataset_business.json
+    - yelp_academic_dataset_review.json
+    
+    '''
+    
+    r_dtypes = {"stars": np.float16, 
+            "useful": np.int32, 
+            "funny": np.int32,
+            "cool": np.int32,
+    }
+
+    
+    with open(biz_file_source, "r") as f:
+        biz_df = pd.read_json(f, orient="records", lines=True)
+        
+    source_filelog = list()
+    for i in range(min_yr, max_yr+1):
+        reviews_df = []
+
+    
+        with open(reviews_file_source, "r") as f:
+            reader = pd.read_json(f, orient="records", lines=True, 
+                          dtype=r_dtypes, chunksize=1000)
+            
+            print("Adding reviews for %d..."%(i))
+            for chunk in reader:
+                date_query = "'%d-01-01'> `date` >= '%d-01-01'"%(i+1, i)
+                print(date_query)
+                reduced_chunk = chunk.drop(columns=['review_id', 'user_id'])\
+                             .query(date_query) 
+                reviews_df.append(reduced_chunk)
+                #break
+    
+            reviews_df = pd.concat(reviews_df, ignore_index=True)
+
+
+        print("Generating source files...")
+        reviews_df_final = pd.merge(reviews_df, biz_df, on="business_id", how="inner") 
+        csv_filename = "%d_%d_yelp.csv"%(i+1, i)
+        reviews_df_final.to_csv(csv_filename)
+        
+        source_filelog.append(csv_filename)
+        
+    return source_filelog
+
 
 def get_mimic_sequential_data():
     """
