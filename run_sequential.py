@@ -67,7 +67,7 @@ def get_sample_avail_idx(avail_dict):
     avail_idx = np.concatenate(avail_idx_lst)
     return avail_idx
 
-def run_sequential(X,y,years,groups,model_name,train_N, data_name, train_set_size=100):
+def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size=100):
     """
     Main function for sequential data experiments
     
