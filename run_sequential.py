@@ -51,7 +51,7 @@ def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
             print("Adding reviews for %d..."%(i))
             for chunk in reader:
                 date_query = "'%d-01-01'> `date` >= '%d-01-01'"%(i+1, i)
-                print(date_query)
+                #print(date_query)
                 reduced_chunk = chunk.drop(columns=['review_id', 'user_id'])\
                              .query(date_query) 
                 reviews_df.append(reduced_chunk)
