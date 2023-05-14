@@ -19,6 +19,42 @@ from sklearn.svm import SVC
 
 import xgboost as xgb
 
+def run_yelp_exp_prep(source_dir, min_yr, max_yr):
+    '''
+    Takes in directory of data sources csv files and outputs formatted X, Y for model training.
+    '''
+    
+    df = pd.DataFrame()
+
+    for yr in yr_range:
+        #/Users/rajiinio/Documents/more-data-more-problems/mdmp_data_clean/2005_2004_final_dd.csv
+        source_file = "/%d_%d_final_dd.csv" %(yr+1, yr)
+        source_path = source_dir+source_file
+        df_yr = pd.read_csv(source_path)
+    
+        #clean up
+        df_yr["year"] = yr
+    
+        #TO DO: properly clean categories 
+        #df_yr['categories_lst'] = df_yr['categories'].apply(lambda x: x.split(', '))
+        df = df.append(df_yr)
+        #df = pd.concat([df, df_yr])
+    
+    
+    tab_cols = ['stars_x','useful', 'funny', 'cool']
+
+    vec = TfidfVectorizer()
+    X_text_vec = vec.fit_transform(df['text']).tocsr()
+    X_tab = df[tab_cols].values
+    X_tab = X_tab.astype(float)
+    #X = sparse.hstack((X_text_vec, X_tab)).tocsr()
+    X = sparse.hstack((X_text_vec, X_tab)).tocsr()
+
+    y = (df['stars_y'].values >= 3.).astype(int)
+    
+    
+    return X, y
+
 def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
     '''
     Takes in yelp data source files and outputs list of csv files of data sources. 
