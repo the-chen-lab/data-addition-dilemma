@@ -20,10 +20,6 @@ from sklearn.svm import SVC
 import xgboost as xgb
 
 
-pd.set_option("display.max_rows", None)
-
-
-
 def get_mimic_sequential_data():
     """
     output
@@ -34,58 +30,20 @@ def get_mimic_sequential_data():
     """
     df = pd.read_csv('adult_icu_year.csv')
     tab_cols = [
-    'age',
-    'first_hosp_stay',
-    'first_icu_stay',
-    'eth_asian',
-    'eth_black',
-    'eth_hispanic',
-    'eth_other',
-    'eth_white',
-    'heartrate_min',
-    'heartrate_max',
-    'heartrate_mean',
-    'sysbp_min',
-    'sysbp_max',
-    'sysbp_mean',
-    'diasbp_min',
-    'diasbp_max',
-    'diasbp_mean',
-    'meanbp_min',
-    'meanbp_max',
-    'meanbp_mean',
-    'resprate_min',
-    'resprate_max',
-    'resprate_mean',
-    'tempc_min',
-    'tempc_max',
-    'tempc_mean',
-    'spo2_min',
-    'spo2_max',
-    'spo2_mean',
-    'glucose_min',
-    'glucose_max',
-    'glucose_mean',
-    'aniongap',
-    'albumin',
-    'bicarbonate',
-    'bilirubin',
-    'creatinine',
-    'chloride',
-    'glucose',
-    'hematocrit',
-    'hemoglobin',
-    'lactate',
-    'magnesium',
-    'phosphate',
-    'platelet',
-    'potassium',
-    'ptt',
-    'inr',
-    'pt',
-    'sodium',
-    'bun',
-    'wbc']
+    'age', 'first_hosp_stay', 'first_icu_stay', 'eth_asian', 
+    'eth_black', 'eth_hispanic', 'eth_other', 'eth_white', 'heartrate_min', 
+    'heartrate_max', 'heartrate_mean', 'sysbp_min', 'sysbp_max', 
+    'sysbp_mean', 'diasbp_min', 'diasbp_max', 'diasbp_mean', 'meanbp_min', 
+    'meanbp_max', 'meanbp_mean', 'resprate_min', 'resprate_max', 
+    'resprate_mean', 'tempc_min', 'tempc_max', 'tempc_mean', 'spo2_min', 
+    'spo2_max', 'spo2_mean', 'glucose_min', 'glucose_max', 'glucose_mean', 
+    'aniongap', 'albumin', 'bicarbonate', 'bilirubin', 'creatinine', 
+    'chloride', 'glucose', 'hematocrit', 'hemoglobin', 'lactate', 'magnesium', 
+    'phosphate', 'platelet', 'potassium', 'ptt', 'inr', 'pt', 'sodium', 
+    'bun', 'wbc'
+    ]
+    
+    # X.shape = (35131, 52)
     X = df[tab_cols].values
     y = df['mort_hosp'].values
     years = df['anchor_year_group'].values
