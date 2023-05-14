@@ -1,3 +1,8 @@
+"""
+2nd and 3rd section for Yelp
+
+"""
+
 import numpy as np
 import pandas as pd
 import os.path
@@ -202,7 +207,7 @@ def yelp_mix_data_prep(biz_file_source, reviews_file_source, num_sources=5):
     - yelp_academic_dataset_business.json
     - yelp_academic_dataset_review.json
     
-    
+    Number of mixtures is variable, but default is 5 (assume up to 5)
     '''
     
     r_dtypes = {"stars": np.float16, 
@@ -264,17 +269,156 @@ def yelp_mix_data_prep(biz_file_source, reviews_file_source, num_sources=5):
     
 
 
-#def run_yelp_exp():
+def get_yelp_mixture_data(num_sources=5):
+    """
+    X: features 
+    y: outcomes
+    source: lst of source labels (length N)
+    groups: lst of sensitive attributes (length N)
+    """
+    # TODO
+    min_yr = 2006
+    max_yr = 2009
+    source_dir = './'
+    return X, y, sources, groups
+
+
+def get_mimc_mixture_data():
+    # TODO
+    min_yr = 2006
+    max_yr = 2009
+    source_dir = './'
+    return X, y, sources, groups
+
+def run_mixture(X, y, sources, groups, model, sources_n, data):
+    # step 1: collect training set from random samples from each source at given source_n
+    # step 2a: gen_test is random sample from all three (e.g., 1000) - FIXED
+    # step 2b: ref_test is random sample from one of them (e.g., source1) - FIXED
+    # step 2c: source_test is random sample from the training data of that run
+    #  -> sources_n / N -> ratio needed to put in source_test (* 1000)
+    # step 3: train and save output
+
+    # decision: tfidf earlier; don't use for train
+    
+#     elect_train, emerg_train, urgen_train, pat_df, source_test, ref_test, gen_test = other_info
+    
+#     n1_idx = np.random.choice(elect_train, n1)
+#     n2_idx = np.random.choice(emerg_train, n2)
+#     n3_idx = np.random.choice(urgen_train, n3)
+    
+    train_idx = np.concatenate([n1_idx, n2_idx, n3_idx])
+    training_data = pat_df.iloc[train_idx]
+    training_data = get_Xy(training_data)
+
+    # return run_model(training_data, source_test, ref_test, gen_test, model, fname)
+    X_train, X2_train, y_train = training_data
+    X_s, X2_s, y_s = source_test
+    X_r, X2_r, y_r = ref_test
+    X_g, X2_g, y_g = gen_test
+    
+    vec = TfidfVectorizer()
+    X_vec_train = vec.fit_transform(X_train)
+    X_vec_s = vec.transform(X_s)
+    X_vec_r = vec.transform(X_r)
+    X_vec_g = vec.transform(X_g)
+    
+    X_combo_train = hstack([X_vec_train, csr_matrix(X2_train)])
+    X_combo_s = hstack([X_vec_s, csr_matrix(X2_s)])
+    X_combo_r = hstack([X_vec_r, csr_matrix(X2_r)])
+    X_combo_g = hstack([X_vec_g, csr_matrix(X2_g)])
+    
+    # learn tf idf on the training data, report performance on source, ref, and gen
+    
+    if model == 'svm' or model == 'lr':
+        Cs = [0.01, 0.1, 0.5, 1.0, 1.5, 2.]
+    elif model == 'nn':
+        Cs = [0.0001, 0.001, 0.01, 0.1]
+        
+    X_vec_train, X_vec_valid, y_train, y_valid = train_test_split(X_combo_train, y_train, train_size=0.8)
+    best_C = None
+    best_acc = -float('inf')
+    best_clf = None
+    for C in Cs:
+        if model == 'svm':
+            clf = SVC(C=C, probability=True)
+        elif model == 'lr':
+            clf = LogisticRegression(C=C, penalty='l1',solver='liblinear')
+            
+        elif model == 'nn':
+            clf = MLPClassifier(alpha=C)
+            
+        clf.fit(X_vec_train,y_train)
+        y_hat_valid = clf.predict_proba(X_vec_valid)[:,1]
+        iter_acc = accuracy_score(y_valid,y_hat_valid > 0.5)
+        
+        if iter_acc > best_acc:
+            best_acc = iter_acc
+            best_C = C
+            best_clf = clf
+    
+    y_s_hat = best_clf.predict_proba(X_combo_s)[:,1]
+    y_r_hat = best_clf.predict_proba(X_combo_r)[:,1]
+    y_g_hat = best_clf.predict_proba(X_combo_g)[:,1]
+    
+#     auc_score_ref = roc_auc_score(y_r,y_r_hat)
+    acc_score_source = accuracy_score(y_s,y_s_hat > 0.5)
+    acc_score_ref = accuracy_score(y_r,y_r_hat > 0.5)
+    acc_score_gen = accuracy_score(y_g,y_g_hat > 0.5)
+    
+    results = {
+        'acc_source': acc_score_source,
+        'acc_ref': acc_score_ref,
+        'acc_gen': acc_score_gen,
+        'yhat_s': y_s_hat,
+        'yhat_r': y_r_hat,
+        'yhat_g': y_g_hat,
+        'best_C': best_C,
+        'best_acc': best_acc,
+        'clf': best_clf,
+        'vec': vec
+        # TODO: train_accuracy
+    }
+    
+    f = open(fname, 'wb')
+    pickle.dump(results, f)
+    f.close()
+    
+    return (acc_score_source,acc_score_ref,acc_score_gen)
+
+
+
+def run_mixture_wrapper(n1, n2, n3, n4, n5, model, data):
+    if data == 'mimic':
+        X, y, sources, groups = get_mimic_mixture_data()
+    elif data == 'yelp':
+        X, y, sources, groups = get_yelp_mixture_data()
+        
+    # check if results/ folder exists; if not, create it
+    if not os.path.exists('results/'):
+        os.makedirs('results/')
+        print('Created results/ directory')
+        
+    sources_n = []
+    for n in [n1, n2, n3, n4, n5]:
+        if n is not None:    
+            sources_n.append(n)
+        
+    run_mixture(X, y, sources, groups, model, sources_n, data)
 
 
 if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n1',type=int)
-    parser.add_argument('--n2',type=int)
-    parser.add_argument('--n3',type=int)
+    parser.add_argument('--n1',type=int, default=0)
+    parser.add_argument('--n2',type=int, default=0)
+    parser.add_argument('--n3',type=int, default=0)
+    parser.add_argument('--n4',type=int, default=0)
+    parser.add_argument('--n5',type=int, default=0)
     parser.add_argument('--model')
+    parser.add_argument('--data')
     args = parser.parse_args()
     
-    run_mimic_experiments(args.n1, args.n2, args.n3, args.model)
+    run_mixture_wrapper(args.n1, args.n2, args.n3, args.n4, args.n5, args.model, args.data)
+
+    

@@ -6,6 +6,8 @@ import os
 import os.path
 import pandas as pd
 import pickle
+from scipy import sparse
+import scipy
 
 from scipy.sparse import hstack, csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -23,12 +25,12 @@ def run_yelp_exp_prep(source_dir, min_yr, max_yr):
     '''
     Takes in directory of data sources csv files and outputs formatted X, Y for model training.
     '''
-    
     df = pd.DataFrame()
-
+    yr_range = range(min_yr, max_yr+1)
+    
     for yr in yr_range:
         #/Users/rajiinio/Documents/more-data-more-problems/mdmp_data_clean/2005_2004_final_dd.csv
-        source_file = "/%d_%d_final_dd.csv" %(yr+1, yr)
+        source_file = "/%d_%d_yelp.csv" %(yr+1, yr)
         source_path = source_dir+source_file
         df_yr = pd.read_csv(source_path)
     
@@ -53,7 +55,13 @@ def run_yelp_exp_prep(source_dir, min_yr, max_yr):
     y = (df['stars_y'].values >= 3.).astype(int)
     
     
-    return X, y
+    return X, y, df['year'].values, None
+
+def get_yelp_sequential_data():
+    min_yr = 2006
+    max_yr = 2009
+    source_dir = './'
+    return run_yelp_exp_prep(source_dir, min_yr, max_yr)
 
 def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
     '''
@@ -193,7 +201,7 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
 #     test_set_size = 100
     N = X.shape[0]
     
-    year_counts_dict = pd.Series(years).to_dict()
+    year_counts_dict = pd.Series(years).value_counts().to_dict()
     year_idx_dict = {year: np.where(years == year)[0] for year in np.unique(years)}
     
     max_year = max(years)
@@ -222,27 +230,34 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
 
     
     ignore_idx = np.concatenate((ref_test_idx,gen_test_idx))
+    
+
+    
     total_idx_sample_dict = get_avail_idx(train_N+test_set_size, year_idx_dict, ignore_idx, avail_years=None)
+    
+    # errors = [i for i in total_idx_sample_dict[2000] if i not in year_idx_dict[2008]]
+    # import pdb; pdb.set_trace()
+    
     total_idx = get_sample_avail_idx(total_idx_sample_dict)
     train_idx = total_idx[test_set_size:]
     
     # source: take 100 from each train run
     source_test_idx = total_idx[:test_set_size]
     
-    try:
+    # only tabular
+    if not scipy.sparse.issparse(X):
         X_train = X[train_idx]
-    except:
-        X_train = X[train_idx].toarray()
-    y_train = y[train_idx]
-    
-    try:
         X_source, y_source = X[source_test_idx], y[source_test_idx]
         X_ref, y_ref = X[ref_test_idx], y[ref_test_idx]
         X_gen, y_gen = X[gen_test_idx], y[gen_test_idx]
-    except:
+    # text + tabular data
+    else:
+        X_train = X[train_idx].toarray()
         X_source, y_source = X[source_test_idx].toarray(), y[source_test_idx]
         X_ref, y_ref = X[ref_test_idx].toarray(), y[ref_test_idx]
         X_gen, y_gen = X[gen_test_idx].toarray(), y[gen_test_idx]
+        
+    y_train = y[train_idx]
     
     
     if model_name == 'lr':
@@ -256,10 +271,12 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
     
     model.fit(X_train, y_train)
 
+    yhat_train = model.predict(X_train)
     yhat_source = model.predict(X_source)
     yhat_ref = model.predict(X_ref)
     yhat_gen = model.predict(X_gen)
     
+    acc_train = accuracy_score(yhat_train, y_train)
     acc_source = accuracy_score(yhat_source, y_source)
     acc_ref = accuracy_score(yhat_ref, y_ref)
     acc_gen = accuracy_score(yhat_gen, y_gen)
@@ -268,6 +285,7 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
         'acc_source': acc_source,
         'acc_ref': acc_ref,
         'acc_gen': acc_gen,
+        'acc_train': acc_train,
         'source_test_idx': source_test_idx,
         'gen_test_idx': gen_test_idx,
         'ref_test_idx': ref_test_idx,
@@ -309,3 +327,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     run_sequential_wrapper(args.data, args.model, args.n)
+
+    # yelp_seq_data_prep
+    # run_yelp_exp_prep(source_dir, min_yr, max_yr):
+    # biz_file_source = '../yelp-data/yelp_academic_dataset_business.json'
+    # reviews_file_source = '../yelp-data/yelp_academic_dataset_review.json'
+    # min_yr, max_yr = 2006, 2010
+    # source_dir = './'
+    
+    # yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr)
+    # X,y,years,groups = run_yelp_exp_prep(source_dir, min_yr, max_yr)
