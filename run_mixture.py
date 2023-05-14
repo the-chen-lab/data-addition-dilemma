@@ -194,6 +194,79 @@ def run_mimic_experiments(n1, n2, n3, model, fdir = 'mimic_results/'):
     fname = fdir+'results_%s_%d_%d_%d.pk' % (model, n1, n2, n3)
     run_experiment(n1, n2, n3, model, fname, other_info)
 
+def yelp_mix_data_prep(biz_file_source, reviews_file_source, num_sources=5):
+    '''
+    Takes in yelp data source files and outputs list of csv files of data sources. 
+    
+    Format of input files from yelp download:
+    - yelp_academic_dataset_business.json
+    - yelp_academic_dataset_review.json
+    
+    
+    '''
+    
+    r_dtypes = {"stars": np.float16, 
+            "useful": np.int32, 
+            "funny": np.int32,
+            "cool": np.int32,
+           }
+
+    #open biz files
+    with open(biz_file_source, "r") as f:
+        biz_df = pd.read_json(f, orient="records", lines=True)
+        
+    
+    #get top n states, to get n sources  
+    state_biz_freq = dict(biz_df["state"].value_counts()) #[:5]
+    topn_states = dict()
+    n = num_sources
+
+
+    for k in list(state_biz_freq.keys())[:n]:
+        topn_states[k] = state_biz_freq[k]
+        
+    states = list(topn_states.keys())
+    
+    source_filelog = list()
+    for i in range(len(states)):
+        
+        #get all business ids within state
+        print("Adding business ids for %s..."%(states[i]))
+        N1_A = biz_df[biz_df["state"]==states[i]]
+        N1_A_ids = set(N1_A['business_id'].values)
+
+        
+
+        #get all reviews associated with restaurants in state 
+        N1_A_reviews = list()
+        print("Adding reviews for %s..."%(states[i]))
+        with open(reviews_file_source, "r") as f:
+            reader = pd.read_json(f, orient="records", lines=True, 
+                          dtype=r_dtypes, chunksize=1000)
+        
+            for chunk in reader:
+                reduced_chunk = chunk.drop(columns=['review_id', 'user_id'])\
+                             .query("`business_id` in @N1_A_ids")
+                N1_A_reviews.append(reduced_chunk)
+                #break
+
+
+            N1_A_reviews = pd.concat(N1_A_reviews, ignore_index=True)
+
+        print("Generating source files...")
+        N1_A_final = pd.merge(N1_A_reviews, N1_A, on="business_id", how="inner")
+        csv_filename = "N_%d_%s_final.csv"%(i, states[i]) 
+        N1_A_final.to_csv(csv_filename)
+        
+        source_filelog.append(csv_filename)
+        
+    return source_filelog
+    
+
+
+#def run_yelp_exp():
+
+
 if __name__ == '__main__':
     import argparse
     
