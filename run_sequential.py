@@ -1,7 +1,8 @@
 # similar to run_mimic
-# python run_sequential.py --data yelp --model lr --n 1000 (and etc)
+# python run_sequential.py --data mimic --model lr -n 1000 (and etc)
 
 import numpy as np
+import os
 import os.path
 import pandas as pd
 import pickle
@@ -31,7 +32,65 @@ def get_mimic_sequential_data():
      - years:
      - groups: 
     """
-    return
+    df = pd.read_csv('adult_icu_year.csv')
+    tab_cols = [
+    'age',
+    'first_hosp_stay',
+    'first_icu_stay',
+    'eth_asian',
+    'eth_black',
+    'eth_hispanic',
+    'eth_other',
+    'eth_white',
+    'heartrate_min',
+    'heartrate_max',
+    'heartrate_mean',
+    'sysbp_min',
+    'sysbp_max',
+    'sysbp_mean',
+    'diasbp_min',
+    'diasbp_max',
+    'diasbp_mean',
+    'meanbp_min',
+    'meanbp_max',
+    'meanbp_mean',
+    'resprate_min',
+    'resprate_max',
+    'resprate_mean',
+    'tempc_min',
+    'tempc_max',
+    'tempc_mean',
+    'spo2_min',
+    'spo2_max',
+    'spo2_mean',
+    'glucose_min',
+    'glucose_max',
+    'glucose_mean',
+    'aniongap',
+    'albumin',
+    'bicarbonate',
+    'bilirubin',
+    'creatinine',
+    'chloride',
+    'glucose',
+    'hematocrit',
+    'hemoglobin',
+    'lactate',
+    'magnesium',
+    'phosphate',
+    'platelet',
+    'potassium',
+    'ptt',
+    'inr',
+    'pt',
+    'sodium',
+    'bun',
+    'wbc']
+    X = df[tab_cols].values
+    y = df['mort_hosp'].values
+    years = df['anchor_year_group'].values
+    groups = df['insurance'].values
+    return X, y, years, groups
     
 def get_avail_idx(num, year_idx_dict, ignore_idx, avail_years):
     """
@@ -47,8 +106,15 @@ def get_avail_idx(num, year_idx_dict, ignore_idx, avail_years):
     year_idx_dict_ignore = {k:[i for i in v if i not in ignore_idx] for k,v in year_idx_dict.items()}
     avail_dict = {}
     remaining = num
+    
+    def valid_year(year):
+        if avail_years is None:
+            return True
+        else:
+            return year in avail_years
+            
     for year in sorted(year_idx_dict_ignore.keys()):
-        if year in avail_years and remaining > 0:
+        if valid_year(year) and remaining > 0:
             avail_year_idx = year_idx_dict_ignore[year]
             avail_year_num_idx = len(avail_year_idx)
             
@@ -67,7 +133,7 @@ def get_sample_avail_idx(avail_dict):
     avail_idx = np.concatenate(avail_idx_lst)
     return avail_idx
 
-def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size=100):
+def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size=1000):
     """
     Main function for sequential data experiments
     
@@ -112,19 +178,28 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
 
     
     ignore_idx = np.concatenate((ref_test_idx,gen_test_idx))
-    total_idx_sample_dict = get_avail_idx(train_N+test_set_size, year_idx_dict, ignore_idx, avail_years=[2006, 2007])
+    total_idx_sample_dict = get_avail_idx(train_N+test_set_size, year_idx_dict, ignore_idx, avail_years=None)
     total_idx = get_sample_avail_idx(total_idx_sample_dict)
     train_idx = total_idx[test_set_size:]
     
     # source: take 100 from each train run
     source_test_idx = total_idx[:test_set_size]
     
-    X_train = X[train_idx].toarray()
+    try:
+        X_train = X[train_idx]
+    except:
+        X_train = X[train_idx].toarray()
     y_train = y[train_idx]
     
-    X_source, y_source = X[source_test_idx].toarray(), y[source_test_idx]
-    X_ref, y_ref = X[ref_test_idx].toarray(), y[ref_test_idx]
-    X_gen, y_gen = X[gen_test_idx].toarray(), y[gen_test_idx]
+    try:
+        X_source, y_source = X[source_test_idx], y[source_test_idx]
+        X_ref, y_ref = X[ref_test_idx], y[ref_test_idx]
+        X_gen, y_gen = X[gen_test_idx], y[gen_test_idx]
+    except:
+        X_source, y_source = X[source_test_idx].toarray(), y[source_test_idx]
+        X_ref, y_ref = X[ref_test_idx].toarray(), y[ref_test_idx]
+        X_gen, y_gen = X[gen_test_idx].toarray(), y[gen_test_idx]
+    
     
     if model_name == 'lr':
         model = make_pipeline(StandardScaler(), LogisticRegression())
@@ -160,7 +235,7 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
         'y_gen': y_gen
     }
     
-    fname = '%s_%s_%d_sequential.pk' % (data_name, model_name, train_N)
+    fname = 'results/%s_%s_%d_sequential.pk' % (data_name, model_name, train_N)
     f = open(fname, 'wb')
     pickle.dump(results, f)
     f.close()
@@ -173,13 +248,18 @@ def run_sequential_wrapper(data, model, n):
     elif data == 'yelp':
         X, y, years, groups = get_yelp_sequential_data()
         
+    # check if results/ folder exists; if not, create it
+    if not os.path.exists('results/'):
+        os.makedirs('results/')
+        print('Created results/ directory')
+        
     run_sequential(X, y, years, groups, model, n, data)
     
 if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n',type=int)
+    parser.add_argument('-n',type=int)
     parser.add_argument('--model')
     parser.add_argument('--data')
     args = parser.parse_args()
