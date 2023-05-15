@@ -13,55 +13,107 @@ from scipy.sparse import hstack, csr_matrix
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score, accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import xgboost as xgb
 
-def run_yelp_exp_prep(source_dir, min_yr, max_yr):
+def get_group(s):
+    ethnic_categories = [
+                'American',
+                    'Italian',
+                    'Mexican',
+                    'Japanese',
+                    'Chinese',
+                    'Southern',
+                    'Vietnamese',
+                    'Asian Fusion',
+                    'Mediterranean',
+                    'Thai'
+                ]
+    # import pdb; pdb.set_trace()
+    for cat in ethnic_categories:
+        
+        try:
+            if cat in s:
+                return cat
+        except:
+            return 'Other'
+    else:
+        return 'Other'
+
+def run_yelp_exp_prep(source_dir, min_yr, max_yr,cache=True):
     '''
     Takes in directory of data sources csv files and outputs formatted X, Y for model training.
     '''
-    df = pd.DataFrame()
-    yr_range = range(min_yr, max_yr+1)
-    
-    for yr in yr_range:
-        #/Users/rajiinio/Documents/more-data-more-problems/mdmp_data_clean/2005_2004_final_dd.csv
-        source_file = "/%d_%d_yelp.csv" %(yr+1, yr)
-        source_path = source_dir+source_file
-        df_yr = pd.read_csv(source_path)
-    
-        #clean up
-        df_yr["year"] = yr
-    
-        #TO DO: properly clean categories 
-        #df_yr['categories_lst'] = df_yr['categories'].apply(lambda x: x.split(', '))
-        df = df.append(df_yr)
-        #df = pd.concat([df, df_yr])
-    
-    
-    tab_cols = ['stars_x','useful', 'funny', 'cool']
+    if not cache:
+        df_lst = []
+        yr_range = range(min_yr, max_yr+1)
 
-    vec = TfidfVectorizer()
-    X_text_vec = vec.fit_transform(df['text']).tocsr()
-    X_tab = df[tab_cols].values
-    X_tab = X_tab.astype(float)
-    #X = sparse.hstack((X_text_vec, X_tab)).tocsr()
-    X = sparse.hstack((X_text_vec, X_tab)).tocsr()
+        for yr in yr_range:
+            #/Users/rajiinio/Documents/more-data-more-problems/mdmp_data_clean/2005_2004_final_dd.csv
+            source_file = "/%d_%d_yelp.csv" %(yr+1, yr)
+            source_path = source_dir+source_file
+            df_yr = pd.read_csv(source_path)
 
-    y = (df['stars_y'].values >= 3.).astype(int)
+            #clean up
+            df_yr["year"] = yr
+            df_yr['group'] = df_yr['categories'].apply(get_group)
+            df_lst.append(df_yr)
+            #TO DO: properly clean categories 
+            # df_yr['categories_lst'] = df_yr['categories'].apply(lambda x: x.split(', '))
+        df = pd.concat(df_lst)
+
+        tab_cols = ['stars_x','useful', 'funny', 'cool']
     
-    
-    return X, y, df['year'].values, None
+        text = df['text'].apply(lambda x: x[:1000]).values
+        
+        vec = TfidfVectorizer()
+        X_text_vec = vec.fit_transform(text).tocsr()
+        X_tab = df[tab_cols].values
+        X_tab = X_tab.astype(float)
+        #X = sparse.hstack((X_text_vec, X_tab)).tocsr()
+        X = sparse.hstack((X_text_vec, X_tab)).tocsr()
+
+        y = (df['stars_y'].values).astype(int)
+        
+        f = open('yelp_seq.pk','wb')
+        years = df['year'].values
+        groups = df['group'].values
+        
+        pickle.dump((X, y, years, groups), f)
+        f.close()
+        
+        # import pdb; pdb.set_trace()
+    else:
+        f = open('yelp_seq.pk','rb')
+        X, y, years, groups = pickle.load(f)
+        f.close()
+    return X, y, years, groups
 
 def get_yelp_sequential_data():
     min_yr = 2006
     max_yr = 2009
     source_dir = './'
-    return run_yelp_exp_prep(source_dir, min_yr, max_yr)
+    
+    # yelp_seq_data_prep
+    # run_yelp_exp_prep(source_dir, min_yr, max_yr):
+    biz_file_source = '../yelp-data/yelp_academic_dataset_business.json'
+    reviews_file_source = '../yelp-data/yelp_academic_dataset_review.json'
+    min_yr, max_yr = 2006, 2010
+    source_dir = './'
+    
+    # yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr)
+    X,y,years,groups = run_yelp_exp_prep(source_dir, min_yr, max_yr, cache=True)
+
+    
+    return X,y,years,groups
 
 def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
     '''
@@ -205,13 +257,15 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
     year_idx_dict = {year: np.where(years == year)[0] for year in np.unique(years)}
     
     max_year = max(years)
+    min_year = min(years)
+    
     # TODO: get ref/test idx if not already cached
     
-    ref_idx_fname = '%s_ref_idx.pk' % data_name
-    gen_idx_fname = '%s_gen_idx.pk' % data_name
+    ref_idx_fname = '%s_ref_idx_sequential.pk' % data_name
+    gen_idx_fname = '%s_gen_idx_sequential.pk' % data_name
     
     if not os.path.exists(ref_idx_fname):
-        ref_test_idx = np.random.choice(year_idx_dict[max_year], size=test_set_size, replace=False)    
+        ref_test_idx = np.random.choice(year_idx_dict[min_year], size=test_set_size, replace=False)    
         
         f = open(ref_idx_fname, 'wb')
         pickle.dump(ref_test_idx, f)
@@ -231,12 +285,7 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
     
     ignore_idx = np.concatenate((ref_test_idx,gen_test_idx))
     
-
-    
     total_idx_sample_dict = get_avail_idx(train_N+test_set_size, year_idx_dict, ignore_idx, avail_years=None)
-    
-    # errors = [i for i in total_idx_sample_dict[2000] if i not in year_idx_dict[2008]]
-    # import pdb; pdb.set_trace()
     
     total_idx = get_sample_avail_idx(total_idx_sample_dict)
     train_idx = total_idx[test_set_size:]
@@ -245,43 +294,54 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
     source_test_idx = total_idx[:test_set_size]
     
     # only tabular
-    if not scipy.sparse.issparse(X):
-        X_train = X[train_idx]
-        X_source, y_source = X[source_test_idx], y[source_test_idx]
-        X_ref, y_ref = X[ref_test_idx], y[ref_test_idx]
-        X_gen, y_gen = X[gen_test_idx], y[gen_test_idx]
+    # if not scipy.sparse.issparse(X):
+    X_train = X[train_idx]
+    X_source, y_source = X[source_test_idx], y[source_test_idx]
+    X_ref, y_ref = X[ref_test_idx], y[ref_test_idx]
+    X_gen, y_gen = X[gen_test_idx], y[gen_test_idx]
     # text + tabular data
-    else:
-        X_train = X[train_idx].toarray()
-        X_source, y_source = X[source_test_idx].toarray(), y[source_test_idx]
-        X_ref, y_ref = X[ref_test_idx].toarray(), y[ref_test_idx]
-        X_gen, y_gen = X[gen_test_idx].toarray(), y[gen_test_idx]
+    # else:
+    #     X_train = X[train_idx].toarray()
+    #     X_source, y_source = X[source_test_idx].toarray(), y[source_test_idx]
+    #     X_ref, y_ref = X[ref_test_idx].toarray(), y[ref_test_idx]
+    #     X_gen, y_gen = X[gen_test_idx].toarray(), y[gen_test_idx]
         
     y_train = y[train_idx]
     
     
     if model_name == 'lr':
-        model = make_pipeline(StandardScaler(), LogisticRegression())
+        model = LogisticRegression()
+        # Cs = [0.001, 0.01, 0.1, 0.5, 1.]
     elif model_name == 'nn':
-        model = make_pipeline(StandardScaler(), MLPClassifier())
+        model = MLPClassifier()
     elif model_name == 'svm':
-        model = make_pipeline(StandardScaler(), SVC())
+        model = SVC()
     elif model_name == 'xgb':
-        model = make_pipeline(StandardScaler(), xgb.XGBClassifier(objective="binary:logistic"))
+        model = xgb.XGBClassifier(objective="binary:logistic")
     
-    model.fit(X_train, y_train)
-
-    yhat_train = model.predict(X_train)
-    yhat_source = model.predict(X_source)
-    yhat_ref = model.predict(X_ref)
-    yhat_gen = model.predict(X_gen)
+    params = [{'C': [0.001, 0.01, 0.1, 0.5, 1.]}]
+    # params = [{'C': [0.01]}]
+    gs = GridSearchCV(model,
+                          param_grid=params,
+                          scoring='accuracy',
+                          cv=5)
+    gs.fit(X_train, y_train)
+    
+        
+    yhat_train = gs.best_estimator_.predict(X_train)
+    yhat_source = gs.best_estimator_.predict(X_source)
+    yhat_ref = gs.best_estimator_.predict(X_ref)
+    yhat_gen = gs.best_estimator_.predict(X_gen)
     
     acc_train = accuracy_score(yhat_train, y_train)
     acc_source = accuracy_score(yhat_source, y_source)
     acc_ref = accuracy_score(yhat_ref, y_ref)
     acc_gen = accuracy_score(yhat_gen, y_gen)
     
+    # import pdb; pdb.set_trace()
+    
     results = {
+        'best_params': gs.best_params_,
         'acc_source': acc_source,
         'acc_ref': acc_ref,
         'acc_gen': acc_gen,
@@ -301,7 +361,6 @@ def run_sequential(X,y,years,groups,model_name,train_N, data_name, test_set_size
     f = open(fname, 'wb')
     pickle.dump(results, f)
     f.close()
-    
 
     
 def run_sequential_wrapper(data, model, n):
@@ -328,12 +387,3 @@ if __name__ == '__main__':
     
     run_sequential_wrapper(args.data, args.model, args.n)
 
-    # yelp_seq_data_prep
-    # run_yelp_exp_prep(source_dir, min_yr, max_yr):
-    # biz_file_source = '../yelp-data/yelp_academic_dataset_business.json'
-    # reviews_file_source = '../yelp-data/yelp_academic_dataset_review.json'
-    # min_yr, max_yr = 2006, 2010
-    # source_dir = './'
-    
-    # yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr)
-    # X,y,years,groups = run_yelp_exp_prep(source_dir, min_yr, max_yr)
