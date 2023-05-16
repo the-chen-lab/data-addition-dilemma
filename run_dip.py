@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy.sparse import vstack
 import itertools
@@ -699,7 +698,7 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     # print(new_data_pt)
     # import pdb; pdb.set_trace()
     
-    results_df = pd.DataFrame(flatten(results_lst))
+    results_df = pd.DataFrame(flatten(results))
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     sns.lineplot(data=results_df, x='size', y='test_acc', hue='clf', ax=axes[0])
     axes[0].set_title("Accuracy with increasing training datasize",fontsize=14)
@@ -750,8 +749,8 @@ def run_dip_experiments(data_name):
         
         
     clf_dict = {'LR':LogisticRegression, 
-           # 'GB':GradientBoostingClassifier,
-           #  'XGB': XGBClassifier
+           'GB':GradientBoostingClassifier,
+            'XGB': XGBClassifier
            # 'SVM':SVC,
            # 'NN':MLPClassifier
            }
@@ -767,7 +766,7 @@ def run_dip_experiments(data_name):
         part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
         part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
     
-    print('done! :D')
+    print('done!')
     return
     
 if __name__ == '__main__':
