@@ -207,10 +207,6 @@ def run_yelp_exp_prep(source_dir, min_yr, max_yr,cache=True):
 
 def get_yelp_data():
     print('loading Yelp data...')
-    min_yr = 2006
-    max_yr = 2009
-    source_dir = './'
-    
     biz_file_source = '../../yelp-data/yelp_academic_dataset_business.json'
     reviews_file_source = '../../yelp-data/yelp_academic_dataset_review.json'
     min_yr, max_yr = 2006, 2010
@@ -361,8 +357,7 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
             group_acc = accuracy_score(y_test[(group_test == group)], yhat[(group_test == group)])
             group_acc_lst.append(group_acc)
         group_acc_lst = np.array(group_acc_lst)
-
-        # import pdb; pdb.set_trace()
+        
         results.append({
         'year': year, 
         'test_acc': model.score(X_test, y_test), 
@@ -371,7 +366,6 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
         'size': len(y_train), 
         'run': run, 
         'clf': clf,
-        # 'group_acc_lst': group_acc_lst
     })
     return results
 
@@ -527,10 +521,15 @@ def part3_worker(X, y, groups, states, years, clf, clf_dict, state, run, size):
         g_state, test_size=0.2, random_state=run)
 
     # set size of training set
+    
+    # import pdb; pdb.set_trace()
+    
+    
     incl = np.asarray(random.sample(range(len(y_train)), size))
 
     X_train = X_train[incl]
     y_train = y_train[incl]
+    
     model = make_pipeline(clf_dict[clf]())
 
     model.fit(X_train, y_train)
@@ -567,18 +566,18 @@ def part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     state_idx = np.where(states == state)[0]
 
     if 'folktables' in fname:
-        size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000]
+        size_arr = [50, 100, 500, 1000, 2000]
     else:
         start = np.log10(500)
         stop = np.log10(len(state_idx)*0.8)
         size_arr = [int(i) for i in np.logspace(start,stop,10)]
     
-    
+    # results = part3_worker(X, y, groups, states, years, 'LR', clf_dict, state, 0, 14000)
     with Pool(processes=15) as pool:
         args = [(X, y, groups, states, years, clf, clf_dict, state, run, size) for run in range(num_trials) for clf in clf_dict for size in size_arr]
         results = pool.starmap(part3_worker, args)
-                
     results_df = pd.DataFrame(flatten(results))
+    
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     sns.lineplot(data=results_df, x='size', y='test_acc', hue='clf', ax=axes[0])
     axes[0].set_title("Accuracy with increasing training datasize",fontsize=14)
@@ -622,8 +621,11 @@ def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_
     else:
         idx = np.arange(X_state.shape[0])
         np.random.shuffle(idx)
-
-        X_joint = vstack((X_train,X_state2[idx]))
+    
+        if sparse.issparse(X_train):
+            X_joint = vstack((X_train,X_state2[idx]))
+        else:
+            X_joint = np.concatenate((X_train,X_state2[idx]))
         y_joint = np.concatenate((y_train,y_state2[idx]))
 
         X_train_small, y_train_small = X_joint[:size], y_joint[:size]
@@ -664,7 +666,7 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     state2_idx = np.where(states == state2)[0]
     
     if 'folktables' in fname:
-        size_arr = [50, 100, 500, 1000, 2000, 4000, 8000]
+        size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000]
     else:
         size_arr1 = np.logspace(np.log10(200),np.log10(len(state_idx) * 0.8), 10)
         size_arr2 = np.logspace(np.log10(max(size_arr1)),np.log10(max(size_arr1) + len(state2_idx)), 5)
@@ -679,30 +681,39 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     y_state2 = y[state2_idx]
     g_state2 = groups[state2_idx]
 
+    results_lst = list()
     # results = part4_worker(X, y, groups, states, years, 'LR', clf_dict, state, 0, 1000, X_state2, y_state2, g_state2)
     
+    # for clf in clf_dict:
+    #     for size in size_arr:
+    #         for run in range(num_trials):
+    #             results = part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size, X_state2, y_state2, g_state2)
+    #             results_lst.append(results)
     with Pool(processes=15) as pool:
         args = [(X, y, groups, states, years, clf, clf_dict, state, run, size, 
                  X_state2, y_state2, g_state2) for run in range(num_trials) for clf in clf_dict for size in size_arr]
         results = pool.starmap(part4_worker, args)
                 
-    import pdb; pdb.set_trace()
     new_data_pt = int(len(state_idx) * 0.8)
-    results_df = pd.DataFrame(flatten(results))
+    
+    # print(new_data_pt)
+    # import pdb; pdb.set_trace()
+    
+    results_df = pd.DataFrame(flatten(results_lst))
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     sns.lineplot(data=results_df, x='size', y='test_acc', hue='clf', ax=axes[0])
     axes[0].set_title("Accuracy with increasing training datasize",fontsize=14)
     axes[0].set_xscale('log')
-    axes[0].axvline(x=new_data_pt, linestyle=':')
+    axes[0].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
     sns.lineplot(data=results_df, x='size', y='EO', hue='clf', ax=axes[1])
     axes[1].set_title("EO with increasing training datasize",fontsize=14)
     axes[1].set_xscale('log')
-    axes[1].axvline(x=new_data_pt, linestyle=':')
+    axes[1].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
     
     sns.lineplot(data=results_df, x='size', y='worst', hue='clf', ax=axes[2])
     axes[2].set_title("Worst group perf with increasing training datasize",fontsize=14)
     axes[2].set_xscale('log')
-    axes[2].axvline(x=new_data_pt, linestyle=':')
+    axes[2].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
     plt.savefig(fname,bbox_inches='tight')
     
     csv_fname = fname.replace('.pdf','.csv').replace('figures/','csv/')
@@ -726,13 +737,17 @@ def run_dip_experiments(data_name):
         LABEL2 = 'NJ' # NJ, AB, not IL bc no subgroups
         START_YEAR = 2006
         X, y, groups, states, years = get_yelp_data()
-        # import pdb; pdb.set_trace()
     
     elif data_name == 'folktables':
         LABEL1 = 'CA'
         LABEL2 = 'SD'
         START_YEAR = 2014
         X, y, groups, states, years = get_folktables_data()
+        
+        year14_idx = np.where(years == START_YEAR)[0]
+        
+        X14, y14, groups14, states14, years14 = X[year14_idx], y[year14_idx], groups[year14_idx], states[year14_idx], years[year14_idx]
+        
         
     clf_dict = {'LR':LogisticRegression, 
            # 'GB':GradientBoostingClassifier,
@@ -741,10 +756,16 @@ def run_dip_experiments(data_name):
            # 'NN':MLPClassifier
            }
     
-    # part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name)
-    # part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
-    part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
-    part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
+    part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name)
+    part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
+    
+    if data_name == 'folktables':
+        part3(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
+        part4(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
+
+    else:
+        part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
+        part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
     
     print('done! :D')
     return
