@@ -1,5 +1,17 @@
-# from folktables import ACSDataSource, ACSEmployment, ACSIncome
+
 import numpy as np
+from scipy.sparse import vstack
+import itertools
+import seaborn as sns
+from scipy import sparse
+import os
+import pandas as pd
+import pickle
+import random
+
+from xgboost import XGBClassifier
+from multiprocessing import Pool
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -13,18 +25,8 @@ from sklearn.model_selection import GridSearchCV
 
 from sklearn.ensemble import GradientBoostingClassifier
 
-from scipy.sparse import vstack
-import itertools
-import seaborn as sns
-from scipy import sparse
-import os
-import pandas as pd
-import pickle
-import random
 
-from xgboost import XGBClassifier
-
-from multiprocessing import Pool
+from folktables import ACSDataSource, ACSEmployment, ACSIncome
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -223,6 +225,58 @@ def get_yelp_data():
     
     return X, y, groups, states, years
 
+
+def get_folktables_data(cache=True):
+    print('loading folktables data...')
+    # state='SD'
+    if not cache:
+        all_features = list()
+        all_labels = list()
+        all_groups = list()
+        all_states = list()
+        all_years = list()
+
+        for state in ['CA', 'HI', 'SD', 'PA', 'MI', 'GA', 'MS']:
+            # data_dict[state] = {}
+            for year in [2014, 2015, 2016, 2017, 2018]: 
+                data_source = ACSDataSource(survey_year=str(year), horizon='1-Year', survey='person')
+                acs_data = data_source.get_data(states=[state], download=True)
+                # data_dict[state][year] = {}
+                # data_dict[state][year]['x'] = features
+
+                features, labels, groups = ACSIncome.df_to_numpy(acs_data)
+
+                all_features.append(features)
+                all_labels.append(labels)
+                all_groups.append(groups)
+
+
+                N = features.shape[0]
+                year_lst = np.array([year] * N)
+                state_lst = np.array([state] * N)
+
+                all_states.append(state_lst)
+                all_years.append(year_lst)
+
+                # data_dict[state][year]['y'] = label
+                # data_dict[state][year]['g'] = group 
+
+        X = np.concatenate(all_features)
+        y = np.concatenate(all_labels)
+        groups = np.concatenate(all_groups)
+        states = np.concatenate(all_states)
+        years = np.concatenate(all_years)
+        
+        f = open('folktables.pk','wb')
+        pickle.dump((X,y,groups,states,years), f)
+        f.close()
+        
+    else:
+        (X,y,groups,states,years) = pickle.load(open('folktables.pk', 'rb'))
+    
+    return X, y, groups, states, years
+    
+    
 def get_mimic_data(LABEL1, LABEL2, LABEL_FIELD):    
     print('loading MIMIC data...')
     df = pd.read_csv('../mimic-data/mimic_diagnoses.csv')
@@ -282,8 +336,8 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
     results.append({
         'year': year, 
         'test_acc': model.score(X_test, y_test), 
-        'worst': np.min(group_acc_lst),
-        'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
+        'worst': np.nanmin(group_acc_lst),
+        'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
         'size': len(y_train), 
         'run': run, 
         'clf': clf
@@ -308,11 +362,12 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
             group_acc_lst.append(group_acc)
         group_acc_lst = np.array(group_acc_lst)
 
+        # import pdb; pdb.set_trace()
         results.append({
         'year': year, 
         'test_acc': model.score(X_test, y_test), 
-        'worst': np.min(group_acc_lst),
-        'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
+        'worst': np.nanmin(group_acc_lst),
+        'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
         'size': len(y_train), 
         'run': run, 
         'clf': clf,
@@ -341,7 +396,7 @@ def part1(X, y, groups, states, years, clf_dict, start_year=2008, num_trials=5, 
     axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
 
     # axes[0].xaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.1}'.format(y)))
-
+    
     sns.lineplot(data=results_df, x='year', y='EO', hue='clf', ax=axes[1])
     axes[1].set_title("EO of %d model on all years" % start_year,fontsize=12)
     axes[1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -390,8 +445,8 @@ def part2_worker(X, y, groups, states, years, run, clf, clf_dict, LABEL1):
     results.append({
         'state': ref_state, 
         'test_acc': model.score(X_test, y_test), 
-        'worst':np.min(group_acc_lst),
-        'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
+        'worst':np.nanmin(group_acc_lst),
+        'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
         'size': len(y_train), 
         'run': run, 
         'clf': clf,
@@ -421,8 +476,8 @@ def part2_worker(X, y, groups, states, years, run, clf, clf_dict, LABEL1):
             results.append({
             'state': state, 
             'test_acc': model.score(X_test, y_test), 
-            'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
-            'worst':np.min(group_acc_lst),
+            'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
+            'worst':np.nanmin(group_acc_lst),
             'size': len(y_train), 
             'run': run, 
             'clf': clf,
@@ -494,8 +549,8 @@ def part3_worker(X, y, groups, states, years, clf, clf_dict, state, run, size):
     results.append({
         'train_acc': train_acc, 
         'test_acc': test_acc, 
-        'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
-        'worst': np.min(group_acc_lst),
+        'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
+        'worst': np.nanmin(group_acc_lst),
         'size': len(y_train), 
         'run': run, 
         'clf': clf, 
@@ -511,9 +566,12 @@ def part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     state=LABEL2
     state_idx = np.where(states == state)[0]
 
-    start = np.log10(500)
-    stop = np.log10(len(state_idx)*0.8)
-    size_arr = [int(i) for i in np.logspace(start,stop,10)]
+    if 'folktables' in fname:
+        size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000]
+    else:
+        start = np.log10(500)
+        stop = np.log10(len(state_idx)*0.8)
+        size_arr = [int(i) for i in np.logspace(start,stop,10)]
     
     
     with Pool(processes=15) as pool:
@@ -588,8 +646,8 @@ def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_
     results.append({
         'train_acc': train_acc, 
         'test_acc': test_acc, 
-        'worst': np.min(group_acc_lst),
-        'EO': np.max(group_acc_lst) - np.min(group_acc_lst), 
+        'worst': np.nanmin(group_acc_lst),
+        'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
         'size': size, 
         'run': run, 
         'clf': clf, 
@@ -604,25 +662,31 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
 
     state_idx = np.where(states == state)[0]
     state2_idx = np.where(states == state2)[0]
+    
+    if 'folktables' in fname:
+        size_arr = [50, 100, 500, 1000, 2000, 4000, 8000]
+    else:
+        size_arr1 = np.logspace(np.log10(200),np.log10(len(state_idx) * 0.8), 10)
+        size_arr2 = np.logspace(np.log10(max(size_arr1)),np.log10(max(size_arr1) + len(state2_idx)), 5)
 
-    size_arr1 = np.logspace(np.log10(200),np.log10(len(state_idx) * 0.8), 10)
-    size_arr2 = np.logspace(np.log10(max(size_arr1)),np.log10(max(size_arr1) + len(state2_idx)), 5)
+        size_arr1 = size_arr1.astype(int)
+        size_arr2 = size_arr2.astype(int)
 
-    size_arr1 = size_arr1.astype(int)
-    size_arr2 = size_arr2.astype(int)
-
-    size_arr = np.concatenate((size_arr1, size_arr2))
+        size_arr = np.concatenate((size_arr1, size_arr2))
 
     state2_idx = np.where(states == state2)[0]            
     X_state2 = X[state2_idx]
     y_state2 = y[state2_idx]
     g_state2 = groups[state2_idx]
 
+    # results = part4_worker(X, y, groups, states, years, 'LR', clf_dict, state, 0, 1000, X_state2, y_state2, g_state2)
+    
     with Pool(processes=15) as pool:
         args = [(X, y, groups, states, years, clf, clf_dict, state, run, size, 
                  X_state2, y_state2, g_state2) for run in range(num_trials) for clf in clf_dict for size in size_arr]
         results = pool.starmap(part4_worker, args)
                 
+    import pdb; pdb.set_trace()
     new_data_pt = int(len(state_idx) * 0.8)
     results_df = pd.DataFrame(flatten(results))
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
@@ -662,16 +726,23 @@ def run_dip_experiments(data_name):
         LABEL2 = 'NJ' # NJ, AB, not IL bc no subgroups
         START_YEAR = 2006
         X, y, groups, states, years = get_yelp_data()
+        # import pdb; pdb.set_trace()
     
+    elif data_name == 'folktables':
+        LABEL1 = 'CA'
+        LABEL2 = 'SD'
+        START_YEAR = 2014
+        X, y, groups, states, years = get_folktables_data()
+        
     clf_dict = {'LR':LogisticRegression, 
-           'GB':GradientBoostingClassifier,
-            'XGB': XGBClassifier
+           # 'GB':GradientBoostingClassifier,
+           #  'XGB': XGBClassifier
            # 'SVM':SVC,
            # 'NN':MLPClassifier
            }
     
-    part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name)
-    part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
+    # part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name)
+    # part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
     part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
     part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
     
