@@ -1,11 +1,82 @@
 import numpy as np
 from sklearn.neighbors import KernelDensity
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.svm import LinearSVC
+from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+import xgboost as xgb
+
 from sklearn.decomposition import PCA
 import scipy.special as sp
 import scipy.stats as st
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+from sklearn.pipeline import Pipeline
+
+clf_dict = {
+    "LR": LogisticRegression,
+    "GB": GradientBoostingClassifier,
+    "XGB": xgb.XGBClassifier,
+    "SVM": LinearSVC,
+    "NN": MLPClassifier,
+}
+
+def model_choice(clf, xtrain=None, ytrain=None):
+    param_grid = {
+        "mlp__alpha": [0.01, 0.05, 0.1],
+        "mlp__learning_rate": ["constant", "adaptive"],
+        'mlp__hidden_layer_sizes': [(8, 2), (12, 3), (16, 4)] 
+    }
+    if clf == "XBG":
+        model = make_pipeline(
+            StandardScaler(), clf_dict[clf](objective="binary:logistic")
+        )
+    elif clf == "SVM":
+        model = make_pipeline(StandardScaler(), clf_dict[clf](C=0.2))
+    elif clf == "NN":
+        model = Pipeline(
+            [
+                ("scalar", StandardScaler()),
+                (
+                    "mlp",
+                    MLPClassifier(
+                        solver="sgd",
+                        hidden_layer_sizes=(8, 2),
+                        random_state=1,
+                        max_iter=500,
+                    ),
+                ),
+            ]
+        )
+        print("running model search")
+        grid_search = GridSearchCV(model, param_grid, n_jobs=-1, cv=5)
+        grid_search.fit(xtrain, ytrain)
+        # final model
+        model = Pipeline(
+            [
+                ("scalar", StandardScaler()),
+                (
+                    "mlp",
+                    MLPClassifier(
+                        solver="sgd",
+                        hidden_layer_sizes=grid_search.best_params_["mlp__hidden_layer_sizes"],
+                        random_state=1,
+                        max_iter=500,
+                        alpha=grid_search.best_params_["mlp__alpha"],
+                        learning_rate=grid_search.best_params_["mlp__learning_rate"],
+                    ),
+                ),
+            ]
+        )
+        print(grid_search.best_params_)
+    else:
+        model = make_pipeline(StandardScaler(), clf_dict[clf]())
+    return model
+
 
 def group_accuracy(correct_arr, group_arr, min_size=10): 
     g_acc_arr = [] 
@@ -15,6 +86,20 @@ def group_accuracy(correct_arr, group_arr, min_size=10):
             g_acc = np.mean(correct_arr[group_arr == g])
             g_acc_arr.append(g_acc)
     return g_acc_arr 
+
+def group_auc(target, pred, group_arr, min_size=10): 
+    g_auc_arr = [] 
+    vals, counts = np.unique(group_arr, return_counts=True)
+    for g, g_count in zip(vals, counts): 
+        if g_count > min_size: 
+            # AUC only valid if two classes exist 
+            if (len(np.unique(target[group_arr == g])) > 1) and \
+            (len(np.unique(pred[group_arr == g])) > 1): 
+                g_auc = roc_auc_score(target[group_arr == g], 
+                                      pred[group_arr == g])
+
+                g_auc_arr.append(g_auc)
+    return g_auc_arr 
 
 
 def init_density_scale(input_data, n_components=3): 
