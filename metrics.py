@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.neighbors import KernelDensity
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.svm import LinearSVC
+from sklearn.svm import LinearSVC, SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
@@ -17,6 +17,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 
+# ignore grid search warnings  
+from sklearn.utils._testing import ignore_warnings
+from sklearn.exceptions import ConvergenceWarning
+
 clf_dict = {
     "LR": LogisticRegression,
     "GB": GradientBoostingClassifier,
@@ -25,6 +29,7 @@ clf_dict = {
     "NN": MLPClassifier,
 }
 
+@ignore_warnings(category=ConvergenceWarning)
 def model_choice(clf, xtrain=None, ytrain=None):
     param_grid = {
         "mlp__alpha": [0.01, 0.05, 0.1],
@@ -72,7 +77,6 @@ def model_choice(clf, xtrain=None, ytrain=None):
                 ),
             ]
         )
-        print(grid_search.best_params_)
     else:
         model = make_pipeline(StandardScaler(), clf_dict[clf]())
     return model
@@ -85,7 +89,29 @@ def group_accuracy(correct_arr, group_arr, min_size=10):
         if g_count > min_size: 
             g_acc = np.mean(correct_arr[group_arr == g])
             g_acc_arr.append(g_acc)
-    return g_acc_arr 
+    
+    group_bin = {}
+    group_bin["white"] = np.mean(correct_arr[group_arr == 1])
+    group_bin["black"] = np.mean(correct_arr[group_arr == 2])
+    group_bin["non-white"] = np.mean(correct_arr[group_arr != 1])
+    return g_acc_arr, group_bin
+
+def group_f1(target, pred, group_arr, min_size=10): 
+    g_f1_arr = [] 
+    vals, counts = np.unique(group_arr, return_counts=True)
+    for g, g_count in zip(vals, counts): 
+        if g_count > min_size: 
+            g_f1 = f1_score(target[group_arr == g], 
+                                      pred[group_arr == g])
+            g_f1_arr.append(g_f1)
+    group_bin = {}
+    group_bin["white"] = f1_score(target[group_arr == 1], 
+                                      pred[group_arr == 1])
+    group_bin["black"] = f1_score(target[group_arr == 2], 
+                                      pred[group_arr == 2])
+    group_bin["non-white"] = f1_score(target[group_arr != 1], 
+                                      pred[group_arr != 1])
+    return g_f1_arr, group_bin
 
 def group_auc(target, pred, group_arr, min_size=10): 
     g_auc_arr = [] 
@@ -99,7 +125,16 @@ def group_auc(target, pred, group_arr, min_size=10):
                                       pred[group_arr == g])
 
                 g_auc_arr.append(g_auc)
-    return g_auc_arr 
+        
+    group_bin = {}
+    group_bin["white"] = roc_auc_score(target[group_arr == 1], 
+                                      pred[group_arr == 1])
+    group_bin["black"] = roc_auc_score(target[group_arr == 2], 
+                                      pred[group_arr == 2])
+    group_bin["non-white"] =roc_auc_score(target[group_arr != 1], 
+                                      pred[group_arr != 1])
+    
+    return g_auc_arr, group_bin 
 
 
 def init_density_scale(input_data, n_components=3): 
