@@ -113,5 +113,34 @@ def run_data_scaling(mixture = False,
     else:
         results_df.to_csv(f"../results/scaling_sequential_{state}_n{n_runs}_test{test_ratio}.csv")
         
+def main():
+    parser = argparse.ArgumentParser(description="Run Data Scaling")
+
+    # Add arguments for the function
+    parser.add_argument('--mixture', dest='mixture', action='store_true',
+                        help='Flag to enable mixture.')
+    parser.set_defaults(mixture=False)
+    parser.add_argument('--n_runs', type=int, default=1,
+                        help='Number of runs.')
+    parser.add_argument('--test_ratio', type=float, default=0.3,
+                        help='Test ratio.')
+    parser.add_argument('--ref_state', type=str, default="CA",
+                        help='Reference state.')
+    parser.add_argument('--state', type=str, default="SD",
+                        help='State.')
+    parser.add_argument('--year', type=str, default="2014",
+                        help='Year.')
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Call the function with parsed arguments
+    run_data_scaling(mixture=args.mixture,
+                     n_runs=args.n_runs,
+                     test_ratio=args.test_ratio,
+                     ref_state=args.ref_state,
+                     state=args.state,
+                     year=args.year)
+
 if __name__ == "__main__":
-    run_data_scaling()
+    main()
