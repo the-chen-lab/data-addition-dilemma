@@ -21,6 +21,7 @@ from sklearn.pipeline import Pipeline
 # ignore grid search warnings  
 from sklearn.utils._testing import ignore_warnings
 from sklearn.exceptions import ConvergenceWarning
+import warnings
 
 clf_dict = {
     "LR": LogisticRegression,
@@ -53,7 +54,10 @@ def model_choice(clf, xtrain=None, ytrain=None):
         )
         print("running model search")
         grid_search = GridSearchCV(model, param_grid_knn, n_jobs=-1, cv=5)
-        grid_search.fit(xtrain, ytrain)
+        
+        with warnings.catch_warnings(): 
+            warnings.filterwarnings("ignore",category=ConvergenceWarning) 
+            grid_search.fit(xtrain, ytrain)
         # final model
         model = Pipeline(
             [
@@ -173,7 +177,7 @@ def init_density_scale(input_data, n_components=3):
     return cx, kde
 
 def init_density(input_data, c):
-    data = c.fit_transform(input_data)
+    data = c.transform(input_data)
     params = {"bandwidth": np.logspace(-1, 10, 20)}
     grid = GridSearchCV(KernelDensity(), params)
     grid.fit(data)
