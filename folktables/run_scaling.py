@@ -29,7 +29,7 @@ def run_data_scaling(mixture = False,
                     ref_state = "CA",
                     state = "SD", 
                     year = "2014",
-                    ): 
+                    seed = 0):
 
     data_dict = {} 
     for state in [ref_state, state]:
@@ -52,7 +52,7 @@ def run_data_scaling(mixture = False,
             data_dict[state][year]["y"],
             data_dict[state][year]["g"],
             test_size=test_ratio,
-            random_state=run,
+            random_state=seed+run,
         )
 
         X_joint = np.concatenate((X_train, data_dict[ref_state][year]["x"]))
@@ -98,21 +98,21 @@ def run_data_scaling(mixture = False,
                         "best_g_AUC": max(g_auc_arr) if len(g_auc_arr) > 0 else 0,
                         "nonwhite_Accuracy": acc_dict["non-white"],
                         "white_Accuracy": acc_dict["white"],
-                        "black_Accuracy": acc_dict["black"],
+                        "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
                         "nonwhite_AUC": auc_dict["non-white"],
                         "white_AUC": auc_dict["white"],
-                        "black_AUC": auc_dict["black"],
+                        "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
                         "size": size,
                         "run": run,
                         "clf": clf,
                     }
                 )
 
-    results_df = pd.DataFrame(results)
-    if mixture:
-        results_df.to_csv(f"../results/scaling_mixture_{state}_n{n_runs}_test{test_ratio}.csv")
-    else:
-        results_df.to_csv(f"../results/scaling_sequential_{state}_n{n_runs}_test{test_ratio}.csv")
+        results_df = pd.DataFrame(results)
+        if mixture:
+            results_df.to_csv(f"../results/scaling_mixture_{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
+        else:
+            results_df.to_csv(f"../results/scaling_sequential_{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
         
 def main():
     parser = argparse.ArgumentParser(description="Run Data Scaling")
@@ -131,6 +131,8 @@ def main():
                         help='State.')
     parser.add_argument('--year', type=str, default="2014",
                         help='Year.')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='random_seed')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -141,7 +143,8 @@ def main():
                      test_ratio=args.test_ratio,
                      ref_state=args.ref_state,
                      state=args.state,
-                     year=args.year)
+                     year=args.year,
+                     seed=args.seed)
 
 if __name__ == "__main__":
     main()

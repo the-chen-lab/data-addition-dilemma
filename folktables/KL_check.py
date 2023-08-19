@@ -42,7 +42,6 @@ def run_kl_check(mixture=False,
     
     results = []
     state = "SD"
-    mixture = False  # sequential if False, mixture if True
     size_arr = [500, 1000, 2000, 3000, 4000, 8000, 12000, 14000, 16000]
     
     for run in range(n_runs):
