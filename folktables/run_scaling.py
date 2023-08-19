@@ -89,6 +89,7 @@ def run_data_scaling(mixture = False,
                     {
                         "train_acc": train_acc,
                         "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
+                        "test_Accuracy_opt_thresh": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
                         "disp_Accuracy": max(g_acc_arr) - min(g_acc_arr),
                         "worst_g_Accuracy": min(g_acc_arr),
                         "best_g_Accuracy": max(g_acc_arr),
