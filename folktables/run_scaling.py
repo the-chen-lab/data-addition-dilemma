@@ -81,6 +81,10 @@ def run_data_scaling(mixture = False,
 
                 test_acc = model.score(X_test, y_test)
 
+                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_test, 
+                                                        y_score=model.predict_proba(X_test)[:, 1])
+                opt_thresh = thresholds[np.argmax(tpr - fpr)]
+
                 results.append(
                     {
                         "train_acc": train_acc,
@@ -103,6 +107,7 @@ def run_data_scaling(mixture = False,
                         "white_AUC": auc_dict["white"],
                         "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
                         "size": size,
+                        "opt_thresh": opt_thresh,
                         "run": run,
                         "clf": clf,
                     }
