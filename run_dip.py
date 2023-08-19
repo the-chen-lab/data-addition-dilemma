@@ -13,7 +13,7 @@ from multiprocessing import Pool
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -23,7 +23,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.model_selection import GridSearchCV
 
 from sklearn.ensemble import GradientBoostingClassifier
-
 
 from folktables import ACSDataSource, ACSEmployment, ACSIncome
 
@@ -61,6 +60,8 @@ from matplotlib.ticker import FuncFormatter, FormatStrFormatter
 
 import warnings
 warnings.filterwarnings('ignore')
+
+from config import yelp_data_dir, mimic_data_dir
 
 def flatten(lst):
     return list(itertools.chain(*lst))
@@ -148,7 +149,7 @@ def yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr):
 
         print("Generating source files...")
         reviews_df_final = pd.merge(reviews_df, biz_df, on="business_id", how="inner") 
-        csv_filename = "%d_%d_yelp.csv"%(i+1, i)
+        csv_filename = yelp_data_dir+"%d_%d_yelp.csv"%(i+1, i)
         reviews_df_final.to_csv(csv_filename)
         
         source_filelog.append(csv_filename)
@@ -206,10 +207,10 @@ def run_yelp_exp_prep(source_dir, min_yr, max_yr,cache=True):
 
 def get_yelp_data():
     print('loading Yelp data...')
-    biz_file_source = '../../yelp-data/yelp_academic_dataset_business.json'
-    reviews_file_source = '../../yelp-data/yelp_academic_dataset_review.json'
+    biz_file_source = yelp_data_dir+'yelp_academic_dataset_business.json'
+    reviews_file_source = yelp_data_dir+'yelp_academic_dataset_review.json'
     min_yr, max_yr = 2006, 2010
-    source_dir = '../'
+    source_dir = yelp_data_dir
     
     # see if we can find the files
     if not os.path.exists(source_dir+'%d_%d_yelp.csv' % (min_yr+1, min_yr)):
@@ -274,12 +275,11 @@ def get_folktables_data(cache=True):
     
 def get_mimic_data(LABEL1, LABEL2, LABEL_FIELD):    
     print('loading MIMIC data...')
-    df = pd.read_csv('../mimic-data/mimic_diagnoses.csv')
+    df = pd.read_csv(mimic_data_dir+'mimic_diagnoses.csv')
     
     df['diagnoses'] = df['diagnoses'].apply(lambda x: x.replace(' <sep> ', ' '))
     df['procedure'] = df['procedure'].apply(lambda x: x.replace(' <sep> ', ' '))
     df['diag_proc'] = df.apply(lambda x: x['diagnoses'] + x['procedure'], axis=1)
-    
 
     df['race'] = df['race'].apply(get_clean_race)
     
@@ -299,7 +299,7 @@ def get_mimic_data(LABEL1, LABEL2, LABEL_FIELD):
     years = df['real_admit_year'].values
     return X, y, groups, states, years
 
-def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
+def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict, data_name):
     """
     function for Pool
     """
@@ -321,18 +321,45 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
     model.fit(X_train, y_train)
 
     yhat = model.predict(X_test)
+    if data_name == 'yelp':
+        yprobs = model.predict_proba(X_test)
+    else:
+        yprobs = model.predict_proba(X_test)[:,1]
 
     group_acc_lst = list()
     for group in range(n_groups):
         group_acc = accuracy_score(y_test[(group_test == group)], yhat[(group_test == group)])
         group_acc_lst.append(group_acc)
     group_acc_lst = np.array(group_acc_lst)
+    
+    
+    group_auc_lst = list()
+    for group in range(n_groups):
+        try:
+            # will throw error if not all groups in subset are represented
+            if data_name == 'yelp':
+                group_auc = roc_auc_score(y_test[(group_test == group)], yprobs[(group_test == group)], multi_class='ovo')
+            else:
+                group_auc = roc_auc_score(y_test[(group_test == group)], yprobs[(group_test == group)])
+        except:
+            group_auc = 0.
+        group_auc_lst.append(group_auc)
+    group_auc_lst = np.array(group_auc_lst)
 
+    
+    if data_name == 'yelp':
+        test_auc = roc_auc_score(y_test, yprobs,multi_class='ovo')
+    else:
+        test_auc = roc_auc_score(y_test, yprobs)
+        
     results.append({
         'year': year, 
         'test_acc': model.score(X_test, y_test), 
         'worst': np.nanmin(group_acc_lst),
         'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
+        'test_auc': test_auc,
+        'worst_auc': np.nanmin(group_auc_lst),
+        'EO_auc': np.nanmax(group_auc_lst) - np.nanmin(group_auc_lst),
         'size': len(y_train), 
         'run': run, 
         'clf': clf
@@ -350,6 +377,10 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
                     g_year, test_size=0.4)
 
         yhat = model.predict(X_test)
+        if data_name == 'yelp':
+            yprobs = model.predict_proba(X_test)
+        else:
+            yprobs = model.predict_proba(X_test)[:,1]
         
         group_acc_lst = list()
         for group in range(n_groups):
@@ -357,11 +388,36 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
             group_acc_lst.append(group_acc)
         group_acc_lst = np.array(group_acc_lst)
         
+        group_auc_lst = list()
+        for group in range(n_groups):
+            if data_name == 'yelp':
+                try:
+                    # throws error if not all groups represented in subset
+                    group_auc = roc_auc_score(y_test[(group_test == group)], yprobs[(group_test == group)], multi_class='ovo')
+                except:
+                    group_auc = 0.
+            else:
+                try:
+                    group_auc = roc_auc_score(y_test[(group_test == group)], yprobs[(group_test == group)])
+                except:
+                    import pdb; pdb.set_trace()
+                
+            group_auc_lst.append(group_auc)
+        group_auc_lst = np.array(group_auc_lst)
+        
+        if data_name == 'yelp':
+            test_auc = roc_auc_score(y_test, yprobs, multi_class='ovo')
+        else:
+            test_auc = roc_auc_score(y_test, yprobs)
+        
         results.append({
         'year': year, 
         'test_acc': model.score(X_test, y_test), 
         'worst': np.nanmin(group_acc_lst),
         'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
+        'test_auc': test_auc,
+        'worst_auc': np.nanmin(group_auc_lst),
+        'EO': np.nanmax(group_auc_lst) - np.nanmin(group_auc_lst),
         'size': len(y_train), 
         'run': run, 
         'clf': clf,
@@ -369,18 +425,24 @@ def part1_worker(X, y, groups, states, years, start_year, run, clf, clf_dict):
     return results
 
 
-def part1(X, y, groups, states, years, clf_dict, start_year=2008, num_trials=5, fname='figures/years.pdf'):
+def part1(X, y, groups, states, years, clf_dict, start_year=2008, num_trials=5, fname='figures/years.pdf', data_name='mimic'):
     #### 1. Is there distribution shift across years?
     print('part 1...')
     
     # debug
     # results = (X, y, groups, states, years, start_year, 0, 'LR', clf_dict) 
-    # results = part1_worker(X, y, groups, states, years, start_year, 0, 'LR', clf_dict)
+#     results = part1_worker(X, y, groups, states, years, start_year, 0, 'LR', clf_dict, data_name)
+    
+#     import pdb; pdb.set_trace()
     with Pool(processes=15) as pool:
-        args = [(X, y, groups, states, years, start_year, run, clf, clf_dict) for run in range(num_trials) for clf in clf_dict]
+        args = [(X, y, groups, states, years, start_year, run, clf, clf_dict, data_name) for run in range(num_trials) for clf in clf_dict]
         results = pool.starmap(part1_worker, args)
     
     results_df = pd.DataFrame(flatten(results))
+    
+#     import pickle
+#     pickle.dump(results_df, open('results/part1_results.pk', 'wb'))
+    
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     
     sns.lineplot(data=results_df, x='year', y='test_acc', hue='clf', ax=axes[0])
@@ -404,6 +466,7 @@ def part1(X, y, groups, states, years, clf_dict, start_year=2008, num_trials=5, 
     
     csv_fname = fname.replace('.pdf','.csv').replace('figures/','csv/')
     results_df.to_csv(csv_fname)
+
         
 def part2_worker(X, y, groups, states, years, run, clf, clf_dict, LABEL1):
     results = []
@@ -593,7 +656,7 @@ def part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     csv_fname = fname.replace('.pdf','.csv').replace('figures/','csv/')
     results_df.to_csv(csv_fname)
 
-def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_state2, y_state2, g_state2):
+def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_state2, y_state2, g_state2, data_name):
     """
     state: smaller and less acc state 
     """
@@ -634,28 +697,57 @@ def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_
     model.fit(X_train_small, y_train_small)
 
     yhat = model.predict(X_test)
+    
+    if data_name == 'yelp':
+        yprobs_train = model.predict_proba(X_train_small)
+        yprobs = model.predict_proba(X_test)
+        multi_class_opt = 'ovo'
+    else:
+        yprobs_train = model.predict_proba(X_train_small)[:,1]
+        yprobs = model.predict_proba(X_test)[:,1]
+        multi_class_opt = 'raise'
 
     group_acc_lst = list()
+    group_auc_lst = list()
+    
     for group in range(n_groups):
+        # error: not all groups have all 5 labels, esp for small data size
         group_acc = accuracy_score(y_test[(group_test == group)], yhat[(group_test == group)])
+        try:
+            group_auc = roc_auc_score(y_test[(group_test == group)], yprobs[(group_test == group)], multi_class=multi_class_opt)
+        except:
+            group_auc = 0.
+        
         group_acc_lst.append(group_acc)
+        group_auc_lst.append(group_auc)
+        
     group_acc_lst = np.array(group_acc_lst)
+    group_auc_lst = np.array(group_auc_lst)
 
     train_acc = model.score(X_train_small, y_train_small)
     test_acc = model.score(X_test, y_test)
+    
+    train_auc = roc_auc_score(y_train_small, yprobs_train, multi_class=multi_class_opt)
+    test_auc = roc_auc_score(y_test, yprobs, multi_class=multi_class_opt)
 
     results.append({
         'train_acc': train_acc, 
         'test_acc': test_acc, 
         'worst': np.nanmin(group_acc_lst),
         'EO': np.nanmax(group_acc_lst) - np.nanmin(group_acc_lst), 
+        
+        'train_auc': train_auc, 
+        'test_auc': test_auc, 
+        'worst_auc': np.nanmin(group_auc_lst),
+        'EO_auc': np.nanmax(group_auc_lst) - np.nanmin(group_auc_lst), 
+        
         'size': size, 
         'run': run, 
         'clf': clf, 
     })
     return results
 
-def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/mimic_p4_dip.pdf'):
+def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/mimic_p4_dip.pdf', data_name='mimic'):
     print('part 4...')
  
     state = LABEL2
@@ -680,8 +772,8 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     y_state2 = y[state2_idx]
     g_state2 = groups[state2_idx]
 
-    results_lst = list()
-    # results = part4_worker(X, y, groups, states, years, 'LR', clf_dict, state, 0, 1000, X_state2, y_state2, g_state2)
+#     results_lst = list()
+#     results = part4_worker(X, y, groups, states, years, 'LR', clf_dict, state, 0, 1000, X_state2, y_state2, g_state2, data_name)
     
     # for clf in clf_dict:
     #     for size in size_arr:
@@ -690,15 +782,16 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     #             results_lst.append(results)
     with Pool(processes=15) as pool:
         args = [(X, y, groups, states, years, clf, clf_dict, state, run, size, 
-                 X_state2, y_state2, g_state2) for run in range(num_trials) for clf in clf_dict for size in size_arr]
+                 X_state2, y_state2, g_state2, data_name) for run in range(num_trials) for clf in clf_dict for size in size_arr]
         results = pool.starmap(part4_worker, args)
-                
+    
     new_data_pt = int(len(state_idx) * 0.8)
     
     # print(new_data_pt)
     # import pdb; pdb.set_trace()
     
     results_df = pd.DataFrame(flatten(results))
+    
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
     sns.lineplot(data=results_df, x='size', y='test_acc', hue='clf', ax=axes[0])
     axes[0].set_title("Accuracy with increasing training datasize",fontsize=14)
@@ -717,7 +810,40 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     
     csv_fname = fname.replace('.pdf','.csv').replace('figures/','csv/')
     results_df.to_csv(csv_fname)
+    
+    
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    sns.lineplot(data=results_df, x='size', y='test_auc', hue='clf', ax=axes[0])
+    axes[0].set_title("AUC with increasing training datasize",fontsize=12)
+#     axes[0].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+#     axes[0].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axes[0].set_xscale('log')
+    axes[0].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
 
+    # axes[0].xaxis.set_major_formatter(FuncFormatter(lambda y, _: '{:.1}'.format(y)))
+    
+    sns.lineplot(data=results_df, x='size', y='EO_auc', hue='clf', ax=axes[1])
+    axes[1].set_title("EO AUC with increasing training datasize",fontsize=12)
+#     axes[1].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+#     axes[1].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axes[1].set_xscale('log')
+    axes[1].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
+
+    
+    sns.lineplot(data=results_df, x='size', y='worst_auc', hue='clf', ax=axes[2])
+    axes[2].set_title("Worst group AUC with increasing training datasize",fontsize=12)
+#     axes[2].xaxis.set_major_formatter(FormatStrFormatter('%d'))
+#     axes[2].yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    axes[2].set_xscale('log')
+    axes[2].axvline(x=new_data_pt, linestyle=':', color='#D3D3D3')
+
+
+    auc_fname = fname.replace('.pdf', '_auc.pdf')
+    plt.savefig(auc_fname,bbox_inches='tight')
+    
+    import pickle
+    pickle.dump(results_df, open('%s_results_auc_%d.pk' % (data_name, new_data_pt),'wb'))
+    
 def run_dip_experiments(data_name):
     """
     1: does performance degrade by year?
@@ -749,22 +875,22 @@ def run_dip_experiments(data_name):
         
         
     clf_dict = {'LR':LogisticRegression, 
-           'GB':GradientBoostingClassifier,
-            'XGB': XGBClassifier
-           # 'SVM':SVC,
+#            'GB':GradientBoostingClassifier,
+#             'XGB': XGBClassifier
+#            'SVM':SVC,
            # 'NN':MLPClassifier
            }
     
-    part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name)
-    part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
+#     part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name, data_name=data_name)
+#     part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
     
     if data_name == 'folktables':
         part3(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
-        part4(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
+        part4(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name, data_name=data_name)
 
     else:
-        part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
-        part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name)
+#         part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
+        part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name, data_name=data_name)
     
     print('done!')
     return
