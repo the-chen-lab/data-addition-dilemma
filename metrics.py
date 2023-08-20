@@ -121,6 +121,24 @@ def group_accuracy(correct_arr, group_arr, min_size=10):
     group_bin["non-white"] = np.mean(correct_arr[group_arr != 1])
     return g_acc_arr, group_bin
 
+def group_accuracy_ot(target, pred, thresh, group_arr, min_size=10): 
+    g_acc_arr = [] 
+    group_bin = {}
+    vals, counts = np.unique(group_arr, return_counts=True)
+    for g, g_count in zip(vals, counts): 
+        if g_count > min_size: 
+            g_acc = accuracy_score(y_true=target[group_arr == g], 
+                                   y_pred=(pred > thresh)[group_arr == g])
+            g_acc_arr.append(g_acc)
+            if g == 1: 
+                group_bin["white"] = g_acc
+            elif g == 2: 
+                group_bin["black"] = g_acc
+    # find non-white accuracy
+    group_bin["non-white"] = accuracy_score(y_true=target[group_arr != 1], 
+                                   y_pred=(pred > thresh)[group_arr != 1])
+    return g_acc_arr, group_bin
+
 def group_f1(target, pred, group_arr, min_size=10): 
     g_f1_arr = [] 
     group_bin = {}
