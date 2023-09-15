@@ -31,6 +31,25 @@ clf_dict = {
     "NN": MLPClassifier,
 }
 
+race_encoding =  {
+        1.0: "white",
+        2.0: "black",
+        3.0: "other",
+        6.0: "asian",
+    }
+
+race_grouping=  {
+        1.0:1.0,
+        2.0:2.0,
+        3.0:3.0,
+        4.0:3.0, # mapping "American Indian Alone" to other
+        5.0:3.0, # mapping "Alaska Naive Alone" to other
+        6.0:6.0, 
+        7.0:3.0, # mapping "Native Hawaiian Alone" to other
+        8.0:3.0, # mapping "Some Other Race alone" to other
+        9.0:3.0, # mapping "Two or More Races" to other
+    }
+
 @ignore_warnings(category=ConvergenceWarning)
 def model_choice(clf, xtrain=None, ytrain=None):
     param_grid_nn = {
@@ -106,61 +125,44 @@ def model_choice(clf, xtrain=None, ytrain=None):
 
 
 def group_accuracy(correct_arr, group_arr, min_size=10): 
-    g_acc_arr = [] 
-    group_bin = {}
+    group_dict = {}
     vals, counts = np.unique(group_arr, return_counts=True)
     for g, g_count in zip(vals, counts): 
         if g_count > min_size: 
             g_acc = np.mean(correct_arr[group_arr == g])
-            g_acc_arr.append(g_acc)
-            if g == 1: 
-                group_bin["white"] = g_acc
-            elif g == 2: 
-                group_bin["black"] = g_acc
+            group_dict[race_encoding[g]] = g_acc
     # find non-white accuracy
-    group_bin["non-white"] = np.mean(correct_arr[group_arr != 1])
-    return g_acc_arr, group_bin
+    group_dict["non-white"] = np.mean(correct_arr[group_arr != 1])
+    return group_dict
 
 def group_accuracy_ot(target, pred, thresh, group_arr, min_size=10): 
-    g_acc_arr = [] 
-    group_bin = {}
+    group_dict = {}
     vals, counts = np.unique(group_arr, return_counts=True)
     for g, g_count in zip(vals, counts): 
         if g_count > min_size: 
             g_acc = accuracy_score(y_true=target[group_arr == g], 
                                    y_pred=(pred > thresh)[group_arr == g])
-            g_acc_arr.append(g_acc)
-            if g == 1: 
-                group_bin["white"] = g_acc
-            elif g == 2: 
-                group_bin["black"] = g_acc
+            group_dict[race_encoding[g]] = g_acc
     # find non-white accuracy
-    group_bin["non-white"] = accuracy_score(y_true=target[group_arr != 1], 
+    group_dict["non-white"] = accuracy_score(y_true=target[group_arr != 1], 
                                    y_pred=(pred > thresh)[group_arr != 1])
-    return g_acc_arr, group_bin
+    return group_dict
 
 def group_f1(target, pred, group_arr, min_size=10): 
-    g_f1_arr = [] 
-    group_bin = {}
+    group_dict = {}
     vals, counts = np.unique(group_arr, return_counts=True)
     for g, g_count in zip(vals, counts): 
         if g_count > min_size: 
             g_f1 = f1_score(target[group_arr == g], 
                                       pred[group_arr == g])
-            g_f1_arr.append(g_f1)
-            if g == 1: 
-                group_bin["white"] = g_f1 
-            elif g == 2: 
-                group_bin["black"] = g_f1 
-    
+            group_dict[race_encoding[g]] = g_f1
     # find non-white f1
-    group_bin["non-white"] = f1_score(target[group_arr != 1], 
+    group_dict["non-white"] = f1_score(target[group_arr != 1], 
                                       pred[group_arr != 1])
-    return g_f1_arr, group_bin
+    return group_dict
 
 def group_auc(target, pred, group_arr, min_size=10): 
-    g_auc_arr = [] 
-    group_bin = {}
+    group_dict = {}
     vals, counts = np.unique(group_arr, return_counts=True)
     for g, g_count in zip(vals, counts): 
         if g_count > min_size: 
@@ -169,17 +171,12 @@ def group_auc(target, pred, group_arr, min_size=10):
                 g_auc = roc_auc_score(target[group_arr == g], 
                                       pred[group_arr == g])
 
-                g_auc_arr.append(g_auc)
-                if g == 1: 
-                    group_bin["white"] = g_auc 
-                elif g == 2: 
-                    group_bin["black"] = g_auc 
-                    
+                group_dict[race_encoding[g]] = g_auc
     # find all non-white AUC                 
-    group_bin["non-white"] =roc_auc_score(target[group_arr != 1], 
+    group_dict["non-white"] =roc_auc_score(target[group_arr != 1], 
                                       pred[group_arr != 1])
     
-    return g_auc_arr, group_bin 
+    return group_dict 
 
 
 def init_density_scale(input_data, n_components=3): 

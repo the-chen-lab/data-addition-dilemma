@@ -40,7 +40,7 @@ def run_data_scaling(mixture = False,
         features, label, group = ACSIncome.df_to_numpy(acs_data)
         data_dict[state][year]["x"] = features
         data_dict[state][year]["y"] = label
-        data_dict[state][year]["g"] = group
+        data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
         
     
     results = []
@@ -80,36 +80,35 @@ def run_data_scaling(mixture = False,
 
                 y_hat = model.predict(X_test)
                 corr = y_hat == y_test
-                g_acc_arr, acc_dict = mt.group_accuracy(corr, group_test)
-
-                g_auc_arr, auc_dict = mt.group_auc(
+                acc_dict = mt.group_accuracy(corr, group_test)
+                #print(acc_dict)
+                auc_dict = mt.group_auc(
                     y_test, model.predict_proba(X_test)[:, 1], group_test
                 )
-
-
+                #print(auc_dict)
                 fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval, 
                                                         y_score=model.predict_proba(X_eval)[:, 1])
                 opt_thresh = thresholds[np.argmax(tpr - fpr)]
 
-                g_acc_ot_arr, acc_ot_dict = mt.group_accuracy_ot(y_test, 
-                                                                 model.predict_proba(X_test)[:, 1], 
-                                                                 opt_thresh,
-                                                                 group_test)
-                
+                acc_ot_dict = mt.group_accuracy_ot(y_test, 
+                                                   model.predict_proba(X_test)[:, 1], 
+                                                   opt_thresh,
+                                                   group_test)
+                #print(acc_ot_dict)
                 results.append(
                     {
                         "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
-                        "disp_Accuracy": max(g_acc_arr) - min(g_acc_arr),
-                        "worst_g_Accuracy": min(g_acc_arr),
-                        "best_g_Accuracy": max(g_acc_arr),
+                        "disp_Accuracy": max(acc_dict.values()) - min(acc_dict.values()),
+                        "worst_g_Accuracy": min(acc_dict.values()),
+                        "best_g_Accuracy": max(acc_dict.values()),
                         "nonwhite_Accuracy": acc_dict["non-white"],
                         "white_Accuracy": acc_dict["white"],
                         "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
                         # test accuracy opt thresh
                         "test_Accuracy_OT": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
-                        "disp_Accuracy_OT": max(g_acc_ot_arr) - min(g_acc_ot_arr),
-                        "worst_g_Accuracy_OT": min(g_acc_ot_arr),
-                        "best_g_Accuracy_OT": max(g_acc_ot_arr),
+                        "disp_Accuracy_OT": max(acc_ot_dict.values()) - min(acc_ot_dict.values()),
+                        "worst_g_Accuracy_OT": min(acc_ot_dict.values()),
+                        "best_g_Accuracy_OT": max(acc_ot_dict.values()),
                         "nonwhite_Accuracy_OT": acc_ot_dict["non-white"],
                         "white_Accuracy_OT": acc_ot_dict["white"],
                         "black_Accuracy_OT": acc_ot_dict["black"] if "black" in acc_ot_dict.keys() else np.nan,
@@ -117,11 +116,9 @@ def run_data_scaling(mixture = False,
                         "test_AUC": metrics.roc_auc_score(
                             y_test, model.predict_proba(X_test)[:, 1]
                         ),
-                        "disp_AUC": max(g_auc_arr) - min(g_auc_arr)
-                        if len(g_auc_arr) > 0
-                        else 0,
-                        "worst_g_AUC": min(g_auc_arr) if len(g_auc_arr) > 0 else 0,
-                        "best_g_AUC": max(g_auc_arr) if len(g_auc_arr) > 0 else 0,
+                        "disp_AUC": max(auc_dict.values()) - min(auc_dict.values()), 
+                        "worst_g_AUC": min(auc_dict.values()),
+                        "best_g_AUC": max(auc_dict.values()),
                         "nonwhite_AUC": auc_dict["non-white"],
                         "white_AUC": auc_dict["white"],
                         "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
