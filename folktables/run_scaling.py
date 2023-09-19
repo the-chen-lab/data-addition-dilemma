@@ -29,7 +29,7 @@ def run_data_scaling(mixture = False,
                     ref_state = "CA",
                     state = "SD", 
                     year = "2014",
-                    ): 
+                    seed = 0):
 
     data_dict = {} 
     for state in [ref_state, state]:
@@ -40,7 +40,7 @@ def run_data_scaling(mixture = False,
         features, label, group = ACSIncome.df_to_numpy(acs_data)
         data_dict[state][year]["x"] = features
         data_dict[state][year]["y"] = label
-        data_dict[state][year]["g"] = group
+        data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
         
     
     results = []
@@ -52,7 +52,7 @@ def run_data_scaling(mixture = False,
             data_dict[state][year]["y"],
             data_dict[state][year]["g"],
             test_size=test_ratio,
-            random_state=run,
+            random_state=seed+run,
         )
 
         X_joint = np.concatenate((X_train, data_dict[ref_state][year]["x"]))
@@ -64,55 +64,76 @@ def run_data_scaling(mixture = False,
             y_joint = y_joint[p]
             g_joint = g_joint[p]
 
+        
+
         for clf in mt.clf_dict.keys():
             for size in size_arr:
+
+                X_train, X_eval, y_train, y_eval = train_test_split(
+                    X_joint[:size],
+                    y_joint[:size],
+                    test_size=0.2
+                )
                 model = mt.model_choice(clf, X_joint[:size], y_joint[:size])
 
-                model.fit(X_joint[:size], y_joint[:size])
+                model.fit(X_train, y_train)
 
                 y_hat = model.predict(X_test)
                 corr = y_hat == y_test
-                g_acc_arr, acc_dict = mt.group_accuracy(corr, group_test)
-                g_auc_arr, auc_dict = mt.group_auc(
+                acc_dict = mt.group_accuracy(corr, group_test)
+                #print(acc_dict)
+                auc_dict = mt.group_auc(
                     y_test, model.predict_proba(X_test)[:, 1], group_test
                 )
+                #print(auc_dict)
+                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval, 
+                                                        y_score=model.predict_proba(X_eval)[:, 1])
+                opt_thresh = thresholds[np.argmax(tpr - fpr)]
 
-                train_acc = model.score(X_train, y_train)
-
-                test_acc = model.score(X_test, y_test)
-
+                acc_ot_dict = mt.group_accuracy_ot(y_test, 
+                                                   model.predict_proba(X_test)[:, 1], 
+                                                   opt_thresh,
+                                                   group_test)
+                #print(acc_ot_dict)
                 results.append(
                     {
-                        "train_acc": train_acc,
                         "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
-                        "disp_Accuracy": max(g_acc_arr) - min(g_acc_arr),
-                        "worst_g_Accuracy": min(g_acc_arr),
-                        "best_g_Accuracy": max(g_acc_arr),
+                        "disp_Accuracy": max(acc_dict.values()) - min(acc_dict.values()),
+                        "worst_g_Accuracy": min(acc_dict.values()),
+                        "best_g_Accuracy": max(acc_dict.values()),
+                        "nonwhite_Accuracy": acc_dict["non-white"],
+                        "white_Accuracy": acc_dict["white"],
+                        "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
+                        # test accuracy opt thresh
+                        "test_Accuracy_OT": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
+                        "disp_Accuracy_OT": max(acc_ot_dict.values()) - min(acc_ot_dict.values()),
+                        "worst_g_Accuracy_OT": min(acc_ot_dict.values()),
+                        "best_g_Accuracy_OT": max(acc_ot_dict.values()),
+                        "nonwhite_Accuracy_OT": acc_ot_dict["non-white"],
+                        "white_Accuracy_OT": acc_ot_dict["white"],
+                        "black_Accuracy_OT": acc_ot_dict["black"] if "black" in acc_ot_dict.keys() else np.nan,
+                        # AUC 
                         "test_AUC": metrics.roc_auc_score(
                             y_test, model.predict_proba(X_test)[:, 1]
                         ),
-                        "disp_AUC": max(g_auc_arr) - min(g_auc_arr)
-                        if len(g_auc_arr) > 0
-                        else 0,
-                        "worst_g_AUC": min(g_auc_arr) if len(g_auc_arr) > 0 else 0,
-                        "best_g_AUC": max(g_auc_arr) if len(g_auc_arr) > 0 else 0,
-                        "nonwhite_Accuracy": acc_dict["non-white"],
-                        "white_Accuracy": acc_dict["white"],
-                        "black_Accuracy": acc_dict["black"],
+                        "disp_AUC": max(auc_dict.values()) - min(auc_dict.values()), 
+                        "worst_g_AUC": min(auc_dict.values()),
+                        "best_g_AUC": max(auc_dict.values()),
                         "nonwhite_AUC": auc_dict["non-white"],
                         "white_AUC": auc_dict["white"],
-                        "black_AUC": auc_dict["black"],
+                        "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
                         "size": size,
+                        "opt_thresh": opt_thresh,
                         "run": run,
                         "clf": clf,
                     }
                 )
 
-    results_df = pd.DataFrame(results)
-    if mixture:
-        results_df.to_csv(f"../results/scaling_mixture_{state}_n{n_runs}_test{test_ratio}.csv")
-    else:
-        results_df.to_csv(f"../results/scaling_sequential_{state}_n{n_runs}_test{test_ratio}.csv")
+        results_df = pd.DataFrame(results)
+        if mixture:
+            results_df.to_csv(f"../results/scaling_mixture_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
+        else:
+            results_df.to_csv(f"../results/scaling_sequential_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
         
 def main():
     parser = argparse.ArgumentParser(description="Run Data Scaling")
@@ -131,6 +152,8 @@ def main():
                         help='State.')
     parser.add_argument('--year', type=str, default="2014",
                         help='Year.')
+    parser.add_argument('--seed', type=int, default=0,
+                        help='random_seed')
 
     # Parse the arguments
     args = parser.parse_args()
@@ -141,7 +164,8 @@ def main():
                      test_ratio=args.test_ratio,
                      ref_state=args.ref_state,
                      state=args.state,
-                     year=args.year)
+                     year=args.year,
+                     seed=args.seed)
 
 if __name__ == "__main__":
     main()
