@@ -12,14 +12,14 @@ Note that `run_full_experiments.py` from the submission NeurIPS supplement code 
 Data is loaded in a variety of ways.
 
 ### Yelp Data
-You can download the Yelp data from [their data website](https://www.yelp.com/dataset/download). If downloading onto a server, the easiest way is to fill out the information and then right-click on "Download JSON" and copy data link address.
+The Yelp dataset consists of reviews and ratings. You can download the Yelp data from [their data website](https://www.yelp.com/dataset/download). If downloading onto a server, the easiest way is to fill out the information and then right-click on "Download JSON" and copy data link address.
 
 ```
 wget "[link address]"
 ```
 
-### MIMIC Data
-The MIMIC data is ... (TBD)
+### MIMIC-IV Data
+The MIMIC-IV data consists of the patient diagnoses and 15-day readmission. Cleaning code is inspired by the [WILD-TIME](https://github.com/huaxiuyao/Wild-Time/blob/main/wildtime/data/mimic.py) repo. 
 
 ## TODO
  - Create environment yaml for easier setup
