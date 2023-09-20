@@ -189,7 +189,7 @@ def kl_accuracy(states_df, n_runs=1, n_samples=3000):
                 diff_df["iter"] = i
                 kl_df = pd.concat((kl_df, diff_df))
     
-    kl_df.to_csv(f"../results/kl_shift_n{n_runs}_s{n_samples}.csv")
+        kl_df.to_csv(f"../results/kl_shift_n{n_runs}_s{n_samples}.csv")
     return 
                 
 
@@ -231,10 +231,12 @@ def excess_kl(n_runs=1, n_samples=3000):
     qkdex = mt.init_density(X_test, cx)
     qkdexy = mt.init_density(np.concatenate((X_test, y_test.reshape(-1, 1)), axis=1), cxy)
 
-    for extra_state in STATES:
-        if extra_state != state:
-            for run in range(n_runs):
-                random.seed(run)
+    for run in range(n_runs):
+        print(run)
+        random.seed(run)
+        for extra_state in STATES:
+            if extra_state != state:
+
                 X_joint = np.concatenate((X_train, data_dict[extra_state][year]["x"]))
                 y_joint = np.concatenate((y_train, data_dict[extra_state][year]["y"]))
 
@@ -275,23 +277,23 @@ def excess_kl(n_runs=1, n_samples=3000):
                             }
                         )
 
-    results_df = pd.DataFrame(results)
+        results_df = pd.DataFrame(results)
 
-    q1_results = results_df[results_df["size"] == len(X_train)].reset_index()[
-        ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
-    ]
-    q2_results = results_df[results_df["size"] == 7500].reset_index()[
-        ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
-    ]
-    diff_results = pd.DataFrame()
-    # accuracy drop n_small - n_large
-    diff_results["acc_diff"] = q2_results["test_acc"] - q1_results["test_acc"]
-    # excess kl n_large - n_small
-    diff_results["klx_diff"] = q2_results["kl_testx"] - q1_results["kl_testx"]
-    diff_results["klxy_diff"] = q2_results["kl_testxy"] - q1_results["kl_testxy"]
-    diff_results["clf"] = q1_results["clf"]
-    diff_results["extra_state"] = q1_results["extra_state"]
-    diff_results.to_csv("../results/excess_kl.csv")
+        q1_results = results_df[results_df["size"] == len(X_train)].reset_index()[
+            ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
+        ]
+        q2_results = results_df[results_df["size"] == 7500].reset_index()[
+            ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
+        ]
+        diff_results = pd.DataFrame()
+        # accuracy drop n_small - n_large
+        diff_results["acc_diff"] = q2_results["test_acc"] - q1_results["test_acc"]
+        # excess kl n_large - n_small
+        diff_results["klx_diff"] = q2_results["kl_testx"] - q1_results["kl_testx"]
+        diff_results["klxy_diff"] = q2_results["kl_testxy"] - q1_results["kl_testxy"]
+        diff_results["clf"] = q1_results["clf"]
+        diff_results["extra_state"] = q1_results["extra_state"]
+        diff_results.to_csv("../results/excess_kl.csv")
     return 
 
 
