@@ -21,6 +21,7 @@ from sklearn.svm import SVC
 
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.model_selection import GridSearchCV
+from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.ensemble import GradientBoostingClassifier
 
@@ -730,7 +731,7 @@ def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_
     train_auc = roc_auc_score(y_train_small, yprobs_train, multi_class=multi_class_opt)
     test_auc = roc_auc_score(y_test, yprobs, multi_class=multi_class_opt)
 
-    results.append({
+    run_results = {
         'train_acc': train_acc, 
         'test_acc': test_acc, 
         'worst': np.nanmin(group_acc_lst),
@@ -744,7 +745,13 @@ def part4_worker(X, y, groups, states, years, clf, clf_dict, state, run, size,X_
         'size': size, 
         'run': run, 
         'clf': clf, 
-    })
+    }
+    
+    import pickle
+    clf_name = clf.__str__().replace('()', '')
+    pickle.dump(run_results, open('results/trial%d_%s_%d.pk' % (run,clf_name,size), 'wb'))
+    
+    results.append(run_results)
     return results
 
 def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/mimic_p4_dip.pdf', data_name='mimic'):
@@ -874,11 +881,13 @@ def run_dip_experiments(data_name):
         X14, y14, groups14, states14, years14 = X[year14_idx], y[year14_idx], groups[year14_idx], states[year14_idx], years[year14_idx]
         
         
-    clf_dict = {'LR':LogisticRegression, 
-#            'GB':GradientBoostingClassifier,
-#             'XGB': XGBClassifier
-#            'SVM':SVC,
-           # 'NN':MLPClassifier
+    clf_dict = {
+        'LR':LogisticRegression, 
+           'GB':GradientBoostingClassifier,
+            'XGB': XGBClassifier,
+                    "KNN": KNeighborsClassifier, 
+            "NN": MLPClassifier,
+
            }
     
 #     part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name, data_name=data_name)
@@ -890,7 +899,7 @@ def run_dip_experiments(data_name):
 
     else:
 #         part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
-        part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name, data_name=data_name)
+        part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=1, fname='figures/%s_p4_dip.pdf' % data_name, data_name=data_name)
     
     print('done!')
     return
