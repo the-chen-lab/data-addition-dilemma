@@ -19,7 +19,7 @@ import scipy.stats
 
 # local libraries
 import sys
-
+OTHER_STATES = ["AK", "CA", "DE", "GA", "HI", "MI", "MS", "OH", "PA", "SD"]
 sys.path.append("..")
 import metrics as mt
 
@@ -41,8 +41,26 @@ def run_data_scaling(mixture = False,
         data_dict[state][year]["x"] = features
         data_dict[state][year]["y"] = label
         data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
-        
+
+    # initialize generalized test set np arrays
+    sample = 1000  
+    x_gen_test = np.zeros((len(OTHER_STATES)*sample, data_dict[state][year]["x"].shape[1]))
+    y_gen_test = np.zeros((len(OTHER_STATES)*sample,))
+    g_gen_test = np.zeros((len(OTHER_STATES)*sample,))
+ 
     
+    for i, state in enumerate(OTHER_STATES):
+
+        data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
+        acs_data = data_source.get_data(states=[state], download=True)
+        features, label, group = ACSIncome.df_to_numpy(acs_data)
+        group = np.vectorize(mt.race_grouping.get)(group)
+        incl = np.asarray(random.sample(range(len(features)), sample))
+
+        x_gen_test[i*sample:(i+1)*sample] =  features[incl]
+        y_gen_test[i*sample:(i+1)*sample] =  label[incl]
+        g_gen_test[i*sample:(i+1)*sample] =  group[incl]
+
     results = []
     size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000, 16000]
 
@@ -104,6 +122,10 @@ def run_data_scaling(mixture = False,
                         "nonwhite_Accuracy": acc_dict["non-white"],
                         "white_Accuracy": acc_dict["white"],
                         "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
+                        # accuracy on same training ratio (eval set is not used for training)
+                        "eval_Accuracy": metrics.accuracy_score(model.predict(X_eval), y_eval),
+                        # accuracy on generalized test set of 10 different states 
+                        "gen_Accuracy": metrics.accuracy_score(model.predict(x_gen_test), y_gen_test),
                         # test accuracy opt thresh
                         "test_Accuracy_OT": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
                         "disp_Accuracy_OT": max(acc_ot_dict.values()) - min(acc_ot_dict.values()),
@@ -134,6 +156,7 @@ def run_data_scaling(mixture = False,
             results_df.to_csv(f"../results/scaling_mixture_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
         else:
             results_df.to_csv(f"../results/scaling_sequential_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
+        
         
 def main():
     parser = argparse.ArgumentParser(description="Run Data Scaling")
