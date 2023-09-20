@@ -244,10 +244,10 @@ def excess_kl(n_runs=1, n_samples=3000):
 
                 for size in size_arr:
                 # sub sample
-                    if size > n_samples:
+                    if size < len(X_joint): 
                         incl = np.asarray(random.sample(range(size), n_samples))
                     else:
-                        incl = range(size)
+                        incl = np.asarray(random.sample(range(len(X_joint)), n_samples))
 
                     pkdex = mt.init_density(X_joint[:size][incl], cx)
                     pkdexy = mt.init_density(xy_joint[:size][incl], cxy)
