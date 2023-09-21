@@ -198,47 +198,47 @@ def excess_kl(n_runs=1, n_samples=3000):
 
     year = "2014"
     # init kde and transform with SD data
-
-    data_dict = {}
-    for state in STATES:
-        data_dict[state] = {}
-        data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
-        acs_data = data_source.get_data(states=[state], download=True)
-        data_dict[state][year] = {}
-        features, label, group = ACSIncome.df_to_numpy(acs_data)
-        data_dict[state][year]["x"] = features
-        data_dict[state][year]["y"] = label
-        data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
-
-    # must estimate kde based on state (e.g. south dakota)
-    state = "SD"
-    X_train, X_test, y_train, y_test, group_train, _, = train_test_split(
-                    data_dict[state][year]["x"],
-                    data_dict[state][year]["y"],
-                    data_dict[state][year]["g"],
-                    test_size=0.25,
-    )
-    
-    joint_xy = np.concatenate(
-        (X_train, y_train.reshape(-1, 1)),
-        axis=1,
-    )
-    incl = np.asarray(random.sample(range(len(joint_xy)), n_samples))
-
-    size_arr = [len(X_train), 7500] # change these numbers based on state test set 
-    cx, _ = mt.init_density_scale(X_train[incl])
-    cxy, _ = mt.init_density_scale(joint_xy[incl]) 
-    qkdex = mt.init_density(X_test, cx)
-    qkdexy = mt.init_density(np.concatenate((X_test, y_test.reshape(-1, 1)), axis=1), cxy)
-
     for run in range(n_runs):
+        data_dict = {}
+        for state in STATES:
+            data_dict[state] = {}
+            data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
+            acs_data = data_source.get_data(states=[state], download=True)
+            data_dict[state][year] = {}
+            features, label, group = ACSIncome.df_to_numpy(acs_data)
+            data_dict[state][year]["x"] = features
+            data_dict[state][year]["y"] = label
+            data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
+
+        # must estimate kde based on state (e.g. south dakota)
+        state = "SD"
+        X_train, X_test, y_train, y_test, group_train, _, = train_test_split(
+                        data_dict[state][year]["x"],
+                        data_dict[state][year]["y"],
+                        data_dict[state][year]["g"],
+                        test_size=0.25,
+        )
+        
+        joint_xy = np.concatenate(
+            (X_train, y_train.reshape(-1, 1)),
+            axis=1,
+        )
+        incl = np.asarray(random.sample(range(len(joint_xy)), n_samples))
+
+        size_arr = [len(X_train), 7500] # change these numbers based on state test set 
+        cx, _ = mt.init_density_scale(X_train[incl])
+        cxy, _ = mt.init_density_scale(joint_xy[incl]) 
+        qkdex = mt.init_density(X_test, cx)
+        qkdexy = mt.init_density(np.concatenate((X_test, y_test.reshape(-1, 1)), axis=1), cxy)
+
         print(run)
         random.seed(run)
         for extra_state in STATES:
             if extra_state != state:
-
-                X_joint = np.concatenate((X_train, data_dict[extra_state][year]["x"]))
-                y_joint = np.concatenate((y_train, data_dict[extra_state][year]["y"]))
+                p = np.random.permutation(len(data_dict[extra_state][year]["x"][: size_arr[-1]]))
+                # permute data from each extra_state before combining with SD
+                X_joint = np.concatenate((X_train, data_dict[extra_state][year]["x"])[p])
+                y_joint = np.concatenate((y_train, data_dict[extra_state][year]["y"])[p])
 
                 xy_joint = np.concatenate((X_joint, y_joint.reshape(-1, 1)), axis=1)
 
@@ -293,7 +293,7 @@ def excess_kl(n_runs=1, n_samples=3000):
         diff_results["klxy_diff"] = q2_results["kl_testxy"] - q1_results["kl_testxy"]
         diff_results["clf"] = q1_results["clf"]
         diff_results["extra_state"] = q1_results["extra_state"]
-        diff_results.to_csv("../results/excess_kl.csv")
+        diff_results.to_csv("../results/excess_kl_n{n_runs}_s{n_samples}.csv")
     return 
 
 
