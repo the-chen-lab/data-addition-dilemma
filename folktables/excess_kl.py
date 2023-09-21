@@ -23,7 +23,13 @@ import os
 sys.path.append("..")
 import metrics as mt
 
-STATES = ["CA", "OH", "DE", "AK", "HI", "SD", "ND", "PA", "MI", "GA", "MS"]
+# more states 
+# near SD : NE, IA, MN
+# mid west: OH, PA, MI
+# south: TX, LA, GA, FL
+# coast: CA, WA, MA
+
+STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
 def run_states(n_runs=1): 
 
     year = "2014"
@@ -193,7 +199,7 @@ def kl_accuracy(states_df, n_runs=1, n_samples=3000):
     return 
                 
 
-def excess_kl(n_runs=1, n_samples=3000):
+def excess_kl(n_runs=1, n_samples=3000, large_size=12000):
     results = []
 
     year = "2014"
@@ -225,7 +231,7 @@ def excess_kl(n_runs=1, n_samples=3000):
         )
         incl = np.asarray(random.sample(range(len(joint_xy)), n_samples))
 
-        size_arr = [len(X_train), 7500] # change these numbers based on state test set 
+        size_arr = [len(X_train), large_size] # change these numbers based on state test set 
         cx, _ = mt.init_density_scale(X_train[incl])
         cxy, _ = mt.init_density_scale(joint_xy[incl]) 
         qkdex = mt.init_density(X_test, cx)
@@ -282,7 +288,7 @@ def excess_kl(n_runs=1, n_samples=3000):
         q1_results = results_df[results_df["size"] == len(X_train)].reset_index()[
             ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
         ]
-        q2_results = results_df[results_df["size"] == 7500].reset_index()[
+        q2_results = results_df[results_df["size"] == large_size].reset_index()[
             ["test_acc", "clf", "extra_state", "kl_testx", "kl_testxy"]
         ]
         diff_results = pd.DataFrame()
@@ -293,7 +299,7 @@ def excess_kl(n_runs=1, n_samples=3000):
         diff_results["klxy_diff"] = q2_results["kl_testxy"] - q1_results["kl_testxy"]
         diff_results["clf"] = q1_results["clf"]
         diff_results["extra_state"] = q1_results["extra_state"]
-        diff_results.to_csv("../results/excess_kl_n{n_runs}_s{n_samples}.csv")
+        diff_results.to_csv(f"../results/excess_kl_n{n_runs}_s{n_samples}_l{large_size}.csv")
     return 
 
 
@@ -308,6 +314,7 @@ def main():
     parser.set_defaults(mixture=False)  # default value for mixture
     parser.add_argument('--n_runs', type=int, default=1,
                         help='Number of runs.')
+    parser.add_argument('--large_size', type=int, default=12000)
     parser.add_argument('--n_samples', type=int, default=3000,
                         help='Number of samples.')
     
@@ -326,7 +333,7 @@ def main():
     
         kl_accuracy(states_df, n_runs=args.n_runs, n_samples=args.n_samples)
     if args.excess_kl:
-        excess_kl(n_runs=args.n_runs, n_samples=args.n_samples)
+        excess_kl(n_runs=args.n_runs, n_samples=args.n_samples, n_large=args.large_size)
 
 if __name__ == "__main__":
     main()
