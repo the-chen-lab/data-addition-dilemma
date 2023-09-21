@@ -237,8 +237,8 @@ def excess_kl(n_runs=1, n_samples=3000):
             if extra_state != state:
                 p = np.random.permutation(len(data_dict[extra_state][year]["x"][: size_arr[-1]]))
                 # permute data from each extra_state before combining with SD
-                X_joint = np.concatenate((X_train, data_dict[extra_state][year]["x"])[p])
-                y_joint = np.concatenate((y_train, data_dict[extra_state][year]["y"])[p])
+                X_joint = np.concatenate((X_train, data_dict[extra_state][year]["x"][p]))
+                y_joint = np.concatenate((y_train, data_dict[extra_state][year]["y"][p]))
 
                 xy_joint = np.concatenate((X_joint, y_joint.reshape(-1, 1)), axis=1)
 
