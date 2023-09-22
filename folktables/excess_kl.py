@@ -30,6 +30,7 @@ import metrics as mt
 # coast: CA, WA, MA
 
 STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
+clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
 def run_states(n_runs=1): 
 
     year = "2014"
@@ -333,7 +334,7 @@ def main():
     
         kl_accuracy(states_df, n_runs=args.n_runs, n_samples=args.n_samples)
     if args.excess_kl:
-        excess_kl(n_runs=args.n_runs, n_samples=args.n_samples, n_large=args.large_size)
+        excess_kl(n_runs=args.n_runs, n_samples=args.n_samples, large_size=args.large_size)
 
 if __name__ == "__main__":
     main()

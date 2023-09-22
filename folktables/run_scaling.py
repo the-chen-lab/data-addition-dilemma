@@ -19,9 +19,23 @@ import scipy.stats
 
 # local libraries
 import sys
-OTHER_STATES = ["AK", "CA", "DE", "GA", "HI", "MI", "MS", "OH", "PA", "SD"]
+OTHER_STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
+clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
 sys.path.append("..")
 import metrics as mt
+
+def add_data_filter(source_distribution, target_distribution, clf='RF', threshold=0.5):
+    """Add a filter to the target distribution to make it more similar to the source distribution.
+    """
+    X = np.concatenate((source_distribution, target_distribution))
+    Y = np.concatenate((np.zeros((len(source_distribution)), ), 
+                        np.ones((len(target_distribution)), )))
+    # use random forest to predict whether a sample is from the source or target distribution 
+    model = mt.model_choice(clf, X, Y)
+    model.fit(X, Y)
+    y_hat = model.predict_proba(target_distribution)
+    keep = np.where(y_hat < threshold)[0]
+    return keep
 
 def run_data_scaling(mixture = False, 
                     n_runs = 1, 
@@ -29,7 +43,9 @@ def run_data_scaling(mixture = False,
                     ref_state = "CA",
                     state = "SD", 
                     year = "2014",
-                    seed = 0):
+                    seed = 0, 
+                    filter_data=False, 
+                    filter_threshold=0.5):
 
     data_dict = {} 
     for state in [ref_state, state]:
@@ -49,10 +65,10 @@ def run_data_scaling(mixture = False,
     g_gen_test = np.zeros((len(OTHER_STATES)*sample,))
  
     
-    for i, state in enumerate(OTHER_STATES):
+    for i, other_state in enumerate(OTHER_STATES):
 
         data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
-        acs_data = data_source.get_data(states=[state], download=True)
+        acs_data = data_source.get_data(states=[other_state], download=True)
         features, label, group = ACSIncome.df_to_numpy(acs_data)
         group = np.vectorize(mt.race_grouping.get)(group)
         incl = np.asarray(random.sample(range(len(features)), sample))
@@ -73,9 +89,22 @@ def run_data_scaling(mixture = False,
             random_state=seed+run,
         )
 
-        X_joint = np.concatenate((X_train, data_dict[ref_state][year]["x"]))
-        y_joint = np.concatenate((y_train, data_dict[ref_state][year]["y"]))
-        g_joint = np.concatenate((group_train, data_dict[ref_state][year]["g"]))
+        X_next = data_dict[ref_state][year]["x"]
+        y_next = data_dict[ref_state][year]["y"]
+        g_next = data_dict[ref_state][year]["g"]
+        if filter_data:
+            selected_points = add_data_filter(
+                                    np.concatenate((X_train, y_train.reshape(-1, 1)), axis=1),
+                                    np.concatenate((X_next, y_next.reshape(-1, 1)), axis=1), 
+                                    "RF", 
+                                    threshold=filter_threshold)
+            X_next = X_next[selected_points]
+            y_next = y_next[selected_points]
+            g_next = g_next[selected_points]
+            
+        X_joint = np.concatenate((X_train, X_next))
+        y_joint = np.concatenate((y_train, y_next))
+        g_joint = np.concatenate((group_train, g_next))
         if mixture:
             p = np.random.permutation(len(X_joint[: size_arr[-1]]))
             X_joint = X_joint[p]
@@ -84,7 +113,7 @@ def run_data_scaling(mixture = False,
 
         
 
-        for clf in mt.clf_dict.keys():
+        for clf in clf_list:
             for size in size_arr:
 
                 X_train, X_eval, y_train, y_eval = train_test_split(
@@ -152,10 +181,15 @@ def run_data_scaling(mixture = False,
                 )
 
         results_df = pd.DataFrame(results)
+        if filter_data: 
+            filter_str = f"f{filter_threshold}"
+        else: 
+            filter_str = ""
+
         if mixture:
-            results_df.to_csv(f"../results/scaling_mixture_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
+            results_df.to_csv(f"../results/scaling_mixture_ot{state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         else:
-            results_df.to_csv(f"../results/scaling_sequential_ot{state}_n{n_runs}_test{test_ratio}_s{seed}.csv")
+            results_df.to_csv(f"../results/scaling_sequential_ot{state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         
         
 def main():
@@ -177,6 +211,8 @@ def main():
                         help='Year.')
     parser.add_argument('--seed', type=int, default=0,
                         help='random_seed')
+    parser.add_argument('--filter_data', dest='filter_data', action='store_true')
+    parser.add_argument('--filter_threshold', type=float, default=0.5)
 
     # Parse the arguments
     args = parser.parse_args()
@@ -188,7 +224,9 @@ def main():
                      ref_state=args.ref_state,
                      state=args.state,
                      year=args.year,
-                     seed=args.seed)
+                     seed=args.seed, 
+                     filter_data=args.filter_data,
+                     filter_threshold=args.filter_threshold)
 
 if __name__ == "__main__":
     main()

@@ -7,6 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
 import xgboost as xgb
 
 from sklearn.decomposition import PCA
@@ -29,6 +30,7 @@ clf_dict = {
     "XGB": xgb.XGBClassifier,
     "KNN": KNeighborsClassifier, 
     "NN": MLPClassifier,
+    "RF": RandomForestClassifier,
 }
 
 race_encoding =  {
