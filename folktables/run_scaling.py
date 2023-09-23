@@ -24,16 +24,21 @@ clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
 sys.path.append("..")
 import metrics as mt
 
-def add_data_filter(source_distribution, target_distribution, clf='RF', threshold=0.5):
+def add_data_filter(source_distribution, target_distribution, clf='RF', threshold=0.3):
     """Add a filter to the target distribution to make it more similar to the source distribution.
     """
-    X = np.concatenate((source_distribution, target_distribution))
-    Y = np.concatenate((np.zeros((len(source_distribution)), ), 
-                        np.ones((len(target_distribution)), )))
+
+    p = np.random.permutation(len(target_distribution))
+    X_train = target_distribution[p][:len(source_distribution)]
+    
+    X = np.concatenate((source_distribution, X_train))
+    Y = np.concatenate((np.zeros(len(source_distribution),), 
+                        np.ones(len(X_train)),))
     # use random forest to predict whether a sample is from the source or target distribution 
     model = mt.model_choice(clf, X, Y)
     model.fit(X, Y)
-    y_hat = model.predict_proba(target_distribution)
+    #print(model.score(target_distribution, np.ones(len(target_distribution))))
+    y_hat = model.predict_proba(target_distribution)[:, 1] # probability of class 0 (source distribution)
     keep = np.where(y_hat < threshold)[0]
     return keep
 
@@ -92,6 +97,7 @@ def run_data_scaling(mixture = False,
         X_next = data_dict[ref_state][year]["x"]
         y_next = data_dict[ref_state][year]["y"]
         g_next = data_dict[ref_state][year]["g"]
+        print("prior to filtering: ", len(X_next))
         if filter_data:
             selected_points = add_data_filter(
                                     np.concatenate((X_train, y_train.reshape(-1, 1)), axis=1),
@@ -101,7 +107,9 @@ def run_data_scaling(mixture = False,
             X_next = X_next[selected_points]
             y_next = y_next[selected_points]
             g_next = g_next[selected_points]
-            
+            print("after filtering: ", len(X_next))
+
+
         X_joint = np.concatenate((X_train, X_next))
         y_joint = np.concatenate((y_train, y_next))
         g_joint = np.concatenate((group_train, g_next))
@@ -115,7 +123,8 @@ def run_data_scaling(mixture = False,
 
         for clf in clf_list:
             for size in size_arr:
-
+                if size > len(X_joint):
+                    break
                 X_train, X_eval, y_train, y_eval = train_test_split(
                     X_joint[:size],
                     y_joint[:size],
