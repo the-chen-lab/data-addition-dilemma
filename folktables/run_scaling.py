@@ -1,6 +1,6 @@
 # run data scaling 
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables import ACSDataSource, ACSIncome
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -14,8 +14,6 @@ import seaborn as sns
 import pandas as pd
 import random
 import argparse
-
-import scipy.stats
 
 # local libraries
 import sys
@@ -219,7 +217,7 @@ def run_data_scaling(mixture = False,
             filter_str = ""
         ref_states_str = "".join(ref_state)
         if mixture:
-            results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_states_str)}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
+            results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_states_str}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         else:
             results_df.to_csv(f"../results/scaling_sequential_a{state}_b{ref_states_str}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         
