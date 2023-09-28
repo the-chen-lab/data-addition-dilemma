@@ -42,10 +42,22 @@ def add_data_filter(source_distribution, target_distribution, clf='RF', threshol
     keep = np.where(y_hat < threshold)[0]
     return keep
 
+def get_data_for_state(data_dict,state, size, year, shuffle=True):
+    """Get data for a state from the data dictionary."""
+    X = data_dict[state][year]["x"]
+    y = data_dict[state][year]["y"]
+    g = data_dict[state][year]["g"]
+    if shuffle: 
+        p = np.random.permutation(len(X))
+        X = X[p]
+        y = y[p]
+        g = g[p]
+    return X[:size], y[:size], g[:size]
+
 def run_data_scaling(mixture = False, 
                     n_runs = 1, 
                     test_ratio = 0.3, 
-                    ref_state = "CA",
+                    ref_state = ["CA"],
                     state = "SD", 
                     year = "2014",
                     seed = 0, 
@@ -53,15 +65,16 @@ def run_data_scaling(mixture = False,
                     filter_threshold=0.5):
 
     data_dict = {} 
-    for state in [ref_state, state]:
-        data_dict[state] = {}
+    print(ref_state)
+    for s in ref_state +  [state]:
+        data_dict[s] = {}
         data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
-        acs_data = data_source.get_data(states=[state], download=True)
-        data_dict[state][year] = {}
+        acs_data = data_source.get_data(states=[s], download=True)
+        data_dict[s][year] = {}
         features, label, group = ACSIncome.df_to_numpy(acs_data)
-        data_dict[state][year]["x"] = features
-        data_dict[state][year]["y"] = label
-        data_dict[state][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
+        data_dict[s][year]["x"] = features
+        data_dict[s][year]["y"] = label
+        data_dict[s][year]["g"] = np.vectorize(mt.race_grouping.get)(group)
 
     # initialize generalized test set np arrays
     sample = 1000  
@@ -93,12 +106,24 @@ def run_data_scaling(mixture = False,
             test_size=test_ratio,
             random_state=seed+run,
         )
-
-        X_next = data_dict[ref_state][year]["x"]
-        y_next = data_dict[ref_state][year]["y"]
-        g_next = data_dict[ref_state][year]["g"]
-        print("prior to filtering: ", len(X_next))
+        # add reference state data
+        if len(ref_state) > 1: 
+            X_next, y_next, g_next = get_data_for_state(data_dict, ref_state[0], size_arr[-1], year, shuffle=True)
+            for r_state in ref_state[1:]: 
+                if r_state != state: 
+                    X_state, y_state, g_state = get_data_for_state(data_dict, r_state, size_arr[-1], year, shuffle=True)
+                    X_next = np.concatenate((X_next, X_state))
+                    y_next = np.concatenate((y_next, y_state))
+                    g_next = np.concatenate((g_next, g_state))
+            p = np.random.permutation(len(X_next))
+            X_next = X_next[p]
+            y_next = y_next[p]
+            g_next = g_next[p]  
+        else: 
+            X_next, y_next, g_next = get_data_for_state(data_dict, ref_state[0], size_arr[-1], year, shuffle=True)
+        
         if filter_data:
+            print("prior to filtering: ", len(X_next))
             selected_points = add_data_filter(
                                     np.concatenate((X_train, y_train.reshape(-1, 1)), axis=1),
                                     np.concatenate((X_next, y_next.reshape(-1, 1)), axis=1), 
@@ -118,8 +143,6 @@ def run_data_scaling(mixture = False,
             X_joint = X_joint[p]
             y_joint = y_joint[p]
             g_joint = g_joint[p]
-
-        
 
         for clf in clf_list:
             for size in size_arr:
@@ -406,7 +429,7 @@ def main():
                         help='Number of runs.')
     parser.add_argument('--test_ratio', type=float, default=0.3,
                         help='Test ratio.')
-    parser.add_argument('--ref_state', type=str, default="CA",
+    parser.add_argument('--ref_state', nargs='*', type=str, default="CA",
                         help='Reference state.')
     parser.add_argument('--state', type=str, default="SD",
                         help='State.')
