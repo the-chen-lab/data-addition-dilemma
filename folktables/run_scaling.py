@@ -196,17 +196,211 @@ def run_data_scaling(mixture = False,
             filter_str = ""
 
         if mixture:
-            results_df.to_csv(f"../results/scaling_mixture_ot{state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
+            results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         else:
-            results_df.to_csv(f"../results/scaling_sequential_ot{state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
+            results_df.to_csv(f"../results/scaling_sequential_a{state}_b{ref_state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         
-        
+
+def scale_years(state="SD", 
+                ref_year="2014", 
+                n_runs=1, seed=0): 
+    data_dict = {}
+    data_dict[state] = {}
+    year_arr = ["2014", "2015", "2016", "2017", "2018"] # years available for Folktables
+    for year in year_arr:
+        data_source = ACSDataSource(survey_year=year, horizon="1-Year", survey="person")
+        acs_data = data_source.get_data(states=[state], download=True)
+        data_dict[state][year] = {}
+        features, label, group = ACSIncome.df_to_numpy(acs_data)
+        group = np.vectorize(mt.race_grouping.get)(group)
+        data_dict[state][year]["x"] = features
+        data_dict[state][year]["y"] = label
+        data_dict[state][year]["g"] = group
+
+    size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000, 16000, 20000]
+    mixture = True 
+    results = [] 
+
+    for run in range(n_runs): 
+        X_joint, X_test, y_joint, y_test, g_joint, g_test = train_test_split(
+            data_dict[state][ref_year]["x"], 
+            data_dict[state][ref_year]["y"], 
+            data_dict[state][ref_year]["g"], test_size=0.3, random_state=run
+        )
+        x_orig = len(X_joint)
+        for year in year_arr: 
+            if year != ref_year: 
+                X_joint = np.concatenate((X_joint, data_dict[state][year]["x"]))
+                y_joint = np.concatenate((y_joint, data_dict[state][year]["y"]))
+                g_joint = np.concatenate((g_joint, data_dict[state][year]["g"]))
+
+        if mixture: 
+            p = np.random.permutation(len(X_joint))
+            X_joint = X_joint[p]
+            y_joint = y_joint[p]
+            g_joint = g_joint[p]
+
+        for size in size_arr: 
+            for clf in clf_list:
+                
+                X_train, X_eval, y_train, y_eval = train_test_split(
+                            X_joint[:size],
+                            y_joint[:size],
+                            test_size=0.2
+                        )
+                model = mt.model_choice(clf, X_joint[:size], y_joint[:size])
+
+                model.fit(X_train, y_train)
+
+                y_hat = model.predict(X_test)
+                corr = y_hat == y_test
+                acc_dict = mt.group_accuracy(corr, g_test)
+
+                auc_dict = mt.group_auc(
+                    y_test, model.predict_proba(X_test)[:, 1], g_test
+                )
+
+                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval, 
+                                                        y_score=model.predict_proba(X_eval)[:, 1])
+                opt_thresh = thresholds[np.argmax(tpr - fpr)]
+
+                acc_ot_dict = mt.group_accuracy_ot(y_test, 
+                                                    model.predict_proba(X_test)[:, 1], 
+                                                    opt_thresh,
+                                                    g_test)
+                
+                results.append(
+                    {
+                        "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
+                        "disp_Accuracy": max(acc_dict.values()) - min(acc_dict.values()),
+                        "worst_g_Accuracy": min(acc_dict.values()),
+                        "best_g_Accuracy": max(acc_dict.values()),
+                        "nonwhite_Accuracy": acc_dict["non-white"],
+                        "white_Accuracy": acc_dict["white"],
+                        "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
+                        # Accuracy OT
+                                        # test accuracy opt thresh
+                        "test_Accuracy_OT": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
+                        "disp_Accuracy_OT": max(acc_ot_dict.values()) - min(acc_ot_dict.values()),
+                        "worst_g_Accuracy_OT": min(acc_ot_dict.values()),
+                        "best_g_Accuracy_OT": max(acc_ot_dict.values()),
+                        "nonwhite_Accuracy_OT": acc_ot_dict["non-white"],
+                        "white_Accuracy_OT": acc_ot_dict["white"],
+                        "black_Accuracy_OT": acc_ot_dict["black"] if "black" in acc_ot_dict.keys() else np.nan,
+                
+                        # AUC 
+                        "test_AUC": metrics.roc_auc_score(
+                            y_test, model.predict_proba(X_test)[:, 1]
+                        ),
+                        "disp_AUC": max(auc_dict.values()) - min(auc_dict.values()), 
+                        "worst_g_AUC": min(auc_dict.values()),
+                        "best_g_AUC": max(auc_dict.values()),
+                        "nonwhite_AUC": auc_dict["non-white"],
+                        "white_AUC": auc_dict["white"],
+                        "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
+                        "size": size,
+                        "run": run,
+                        "clf": clf,
+                    }
+                )
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(f"../results/{state}_scaling_n{n_runs}.csv")
+    return 
+
+def scale_simple(state="CA", n_runs=1): 
+    data_source = ACSDataSource(survey_year="2014", horizon="1-Year", survey="person")
+    acs_data = data_source.get_data(states=[state], download=True)
+    features, label, group = ACSIncome.df_to_numpy(acs_data)
+    group = np.vectorize(mt.race_grouping.get)(group)
+
+    size_arr = [100, 500, 1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 160000]
+    results = [] 
+    for run in range(n_runs): 
+        X_joint, X_test, y_joint, y_test, g_train, g_test = train_test_split(
+            features, label, group, test_size=0.1, random_state=run
+        )
+        for size in size_arr: 
+            print(size)
+            for clf in clf_list:
+                
+                X_train, X_eval, y_train, y_eval = train_test_split(
+                            X_joint[:size],
+                            y_joint[:size],
+                            test_size=0.2
+                        )
+                model = mt.model_choice(clf, X_joint[:size], y_joint[:size])
+
+                model.fit(X_train, y_train)
+
+                y_hat = model.predict(X_test)
+                corr = y_hat == y_test
+                acc_dict = mt.group_accuracy(corr, g_test)
+
+                auc_dict = mt.group_auc(
+                    y_test, model.predict_proba(X_test)[:, 1], g_test
+                )
+
+                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval, 
+                                                        y_score=model.predict_proba(X_eval)[:, 1])
+                opt_thresh = thresholds[np.argmax(tpr - fpr)]
+
+                acc_ot_dict = mt.group_accuracy_ot(y_test, 
+                                                    model.predict_proba(X_test)[:, 1], 
+                                                    opt_thresh,
+                                                    g_test)
+                
+                results.append(
+                    {
+                        "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
+                        "disp_Accuracy": max(acc_dict.values()) - min(acc_dict.values()),
+                        "worst_g_Accuracy": min(acc_dict.values()),
+                        "best_g_Accuracy": max(acc_dict.values()),
+                        "nonwhite_Accuracy": acc_dict["non-white"],
+                        "white_Accuracy": acc_dict["white"],
+                        "black_Accuracy": acc_dict["black"] if "black" in acc_dict.keys() else np.nan,
+                        # Accuracy OT
+                                        # test accuracy opt thresh
+                        "test_Accuracy_OT": metrics.accuracy_score(model.predict_proba(X_test)[:, 1] > opt_thresh, y_test),
+                        "disp_Accuracy_OT": max(acc_ot_dict.values()) - min(acc_ot_dict.values()),
+                        "worst_g_Accuracy_OT": min(acc_ot_dict.values()),
+                        "best_g_Accuracy_OT": max(acc_ot_dict.values()),
+                        "nonwhite_Accuracy_OT": acc_ot_dict["non-white"],
+                        "white_Accuracy_OT": acc_ot_dict["white"],
+                        "black_Accuracy_OT": acc_ot_dict["black"] if "black" in acc_ot_dict.keys() else np.nan,
+                
+                        # AUC 
+                        "test_AUC": metrics.roc_auc_score(
+                            y_test, model.predict_proba(X_test)[:, 1]
+                        ),
+                        "disp_AUC": max(auc_dict.values()) - min(auc_dict.values()), 
+                        "worst_g_AUC": min(auc_dict.values()),
+                        "best_g_AUC": max(auc_dict.values()),
+                        "nonwhite_AUC": auc_dict["non-white"],
+                        "white_AUC": auc_dict["white"],
+                        "black_AUC": auc_dict["black"] if "black" in auc_dict.keys() else np.nan,
+                        "size": size,
+                        "run": run,
+                        "clf": clf,
+                    }
+                )
+
+    results_df = pd.DataFrame(results)
+    results_df.to_csv(f"../results/{state}_scaling_n{n_runs}.csv")
+    return 
+
 def main():
     parser = argparse.ArgumentParser(description="Run Data Scaling")
 
     # Add arguments for the function
     parser.add_argument('--mixture', dest='mixture', action='store_true',
                         help='Flag to enable mixture.')
+    parser.add_argument('--sequential', dest='sequential', action='store_true',
+                    help='Flag to enable sequential.')
+    parser.add_argument('--scale_years', dest='scale_years', action='store_true',
+                    help='Flag to enable scale years.')
+    parser.add_argument('--scale_simple', dest='scale_simple', action='store_true',
+                    help='Flag to enable scale simple.')
     parser.set_defaults(mixture=False)
     parser.add_argument('--n_runs', type=int, default=1,
                         help='Number of runs.')
@@ -226,16 +420,24 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
 
-    # Call the function with parsed arguments
-    run_data_scaling(mixture=args.mixture,
-                     n_runs=args.n_runs,
-                     test_ratio=args.test_ratio,
-                     ref_state=args.ref_state,
-                     state=args.state,
-                     year=args.year,
-                     seed=args.seed, 
-                     filter_data=args.filter_data,
-                     filter_threshold=args.filter_threshold)
+    if args.mixture or args.sequential: 
+        # Call the function with parsed arguments
+        run_data_scaling(mixture=args.mixture,
+                        n_runs=args.n_runs,
+                        test_ratio=args.test_ratio,
+                        ref_state=args.ref_state,
+                        state=args.state,
+                        year=args.year,
+                        seed=args.seed, 
+                        filter_data=args.filter_data,
+                        filter_threshold=args.filter_threshold)
+    if args.scale_years: 
+        scale_years(state=args.state,
+                    ref_year=args.year,
+                    n_runs=args.n_runs)
+    if args.scale_simple: 
+        scale_simple(state=args.state,
+                    n_runs=args.n_runs)
 
 if __name__ == "__main__":
     main()
