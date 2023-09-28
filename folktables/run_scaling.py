@@ -217,11 +217,11 @@ def run_data_scaling(mixture = False,
             filter_str = f"f{filter_threshold}"
         else: 
             filter_str = ""
-
+        ref_states_str = "".join(ref_state)
         if mixture:
-            results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
+            results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_states_str)}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         else:
-            results_df.to_csv(f"../results/scaling_sequential_a{state}_b{ref_state}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
+            results_df.to_csv(f"../results/scaling_sequential_a{state}_b{ref_states_str}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         
 
 def scale_years(state="SD", 
@@ -429,7 +429,7 @@ def main():
                         help='Number of runs.')
     parser.add_argument('--test_ratio', type=float, default=0.3,
                         help='Test ratio.')
-    parser.add_argument('--ref_state', nargs='*', type=str, default="CA",
+    parser.add_argument('--ref_state', nargs='*', type=str, default=["CA"],
                         help='Reference state.')
     parser.add_argument('--state', type=str, default="SD",
                         help='State.')
