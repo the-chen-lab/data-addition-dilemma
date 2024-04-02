@@ -15,14 +15,15 @@ import seaborn as sns
 import pandas as pd
 import random
 import scipy.stats
-
+import os 
 import argparse 
 
 import sys
 sys.path.append("..")
 import metrics as mt
 
-
+# CONSTS
+hospital_ids = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
 def run_kl_check(mixture=False, 
                  n_runs=1, 
                  n_samples=3000,
@@ -109,10 +110,82 @@ def run_kl_check(mixture=False,
     return 
 
 
+def get_hospital(hid, split='train', sample_ratio=1, rand_seed=42): 
+    log_dir = f'/home/ubuntu/projects/more-data-more-problems/yaib_logs/eicu/Mortality24/LogisticRegression/'
+    file_name =f'train{hid}-test{hid}/data.npz'
+    hos = np.load(os.path.join(log_dir, file_name), allow_pickle=True)
+    x = hos[split].item()['features']
+    y = hos[split].item()['labels']
+    xy = np.concatenate((x, y.reshape(-1, 1)), axis=1)
+    if sample_ratio < 1: 
+        rng = np.random.default_rng(rand_seed)
+        ind = rng.choice(len(x), size=int(len(x)*sample_ratio), replace=False)
+        return x[ind], y[ind], xy[ind]
+    else: 
+        return x, y, xy
+
+def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
+    # fit stratified sample density
+    num_hospitals = len(hids)
+    samples_per_hos = int(max_samples / num_hospitals)
+
+    x_all = []
+    xy_all = []
+
+    for h in hids:
+        x, y, xy = get_hospital(h, split=split)
+
+        # Sample from the hospital data
+        random_indices = np.random.choice(len(x), size=samples_per_hos, replace=False)
+        x_sampled = x[random_indices]
+        xy_sampled = xy[random_indices]
+
+        # Append the sampled data to the overall arrays
+        x_all.append(x_sampled)
+        xy_all.append(xy_sampled)
+
+    # Concatenate the sampled data from all hospitals
+    x_all = np.concatenate(x_all, axis=0)
+    xy_all = np.concatenate(xy_all, axis=0)
+    cx, _ = mt.init_density_scale(x_all, n_components=n_components)
+    cxy, _ = mt.init_density_scale(xy_all, n_components=n_components)
+    return cx, cxy
+    
+def run_hospital_kl(n_runs=5, n_samples=2000, n_components=3): 
+    cx, cxy = fit_general_density(hospital_ids, n_components=n_components)
+    KL_x = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
+    KL_xy = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
+    results = {} 
+    for run in range(n_runs):
+        print(f"iter {run}")
+        for i, h1 in enumerate(hospital_ids): 
+            x, y, xy = get_hospital(h1, sample_ratio=0.9, rand_seed=run)
+            # already shuffled
+            x, y, xy = x[:n_samples], y[:n_samples], xy[:n_samples]
+            # test set 
+            pkdex = mt.init_density(x, cx) 
+            pkdexy = mt.init_density(xy, cxy)             
+            for j, h2 in enumerate(hospital_ids): 
+                if i != j: 
+                    print(f"computing {h1} {h2}") 
+                    x2, y2, xy2 = get_hospital(h2, sample_ratio=0.9, rand_seed=run)
+                    x2, y2, xy2 = x2[:n_samples], y2[:n_samples], xy2[:n_samples]
+                    # training distribution 
+                    qkdex = mt.init_density(x2, cx)
+                    qkdexy = mt.init_density(xy2, cxy)
+                    KL_x[run, i, j] = mt.entropy_input(x, pkdex, qkdex, cx)
+                    KL_xy[run, i, j] = mt.entropy_input(xy, pkdexy, qkdexy, cxy)
+        results['KL_x'] = KL_x
+        results['KL_xy'] = KL_xy
+        np.savez(f"YAIB/results/distances/KL-n{n_samples}-c{n_components}.npz", **results)
+    return 
+
 def main():
     parser = argparse.ArgumentParser(description="Run KL Check")
     
     # Add arguments for the function
+    parser.add_argument('--dataset', type=str, default='eicu',
+                        help='dataset')
     parser.add_argument('--mixture', dest='mixture', action='store_true',
                         help='Flag to enable mixture.')
     parser.set_defaults(mixture=False)  # default value for mixture
@@ -120,6 +193,8 @@ def main():
                         help='Number of runs.')
     parser.add_argument('--n_samples', type=int, default=3000,
                         help='Number of samples.')
+    parser.add_argument('--n_components', type=int, default=3,
+                        help='Number of PCA Components')
     parser.add_argument('--year', type=str, default="2014",
                         help='Year.')
     parser.add_argument('--test_ratio', type=float, default=0.3,
@@ -129,11 +204,16 @@ def main():
     args = parser.parse_args()
     
     # Call the function using parsed arguments
-    run_kl_check(mixture=args.mixture,
-                 n_runs=args.n_runs,
-                 n_samples=args.n_samples,
-                 year=args.year,
-                 test_ratio=args.test_ratio)
+    if args.dataset == 'folktables': 
+        run_kl_check(mixture=args.mixture,
+                     n_runs=args.n_runs,
+                     n_samples=args.n_samples,
+                     year=args.year,
+                     test_ratio=args.test_ratio)
+    elif args.dataset == 'eicu': 
+        run_hospital_kl(n_runs = args.n_runs, 
+                       n_samples=args.n_samples, 
+                       n_components=args.n_components)
 
 if __name__ == "__main__":
     main()

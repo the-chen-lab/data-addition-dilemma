@@ -181,9 +181,11 @@ def group_auc(target, pred, group_arr, min_size=10):
     return group_dict 
 
 
-def init_density_scale(input_data, n_components=3): 
-    cx = make_pipeline(StandardScaler(), PCA(n_components=n_components)) 
-    
+def init_density_scale(input_data, n_components=3, standardize=True): 
+    if standardize: 
+        cx = make_pipeline(StandardScaler(), PCA(n_components=n_components)) 
+    else: 
+        cx = make_pipeline(PCA(n_components=n_components)) 
     data = cx.fit_transform(input_data)
     params = {"bandwidth": np.logspace(-1, 10, 20)}
     grid = GridSearchCV(KernelDensity(), params)
@@ -205,14 +207,16 @@ def init_density(input_data, c):
 
 
 def kl_input(x, pkde, qkde, c): 
-    px = np.exp(pkde.score_samples(c.transform(x)))
-    qx = np.exp(qkde.score_samples(c.transform(x)))
+    # include stability term
+    px = np.exp(pkde.score_samples(c.transform(x))) + 1e-6
+    qx = np.exp(qkde.score_samples(c.transform(x))) + 1e-6
     return sp.kl_div(px, qx).mean()
 
 
 def entropy_input(x, pkde, qkde, c): 
-    px = np.exp(pkde.score_samples(c.transform(x)))
-    qx = np.exp(qkde.score_samples(c.transform(x)))
+    # include stability term
+    px = np.exp(pkde.score_samples(c.transform(x))) + 1e-6
+    qx = np.exp(qkde.score_samples(c.transform(x))) + 1e-6
     return st.entropy(px, qx)
     
 def hello(): 
