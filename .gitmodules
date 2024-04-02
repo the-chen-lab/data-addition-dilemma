@@ -1,3 +1,6 @@
 [submodule "YAIB-cohorts"]
 	path = YAIB-cohorts
 	url = git@github.com:heyyjudes/YAIB-cohorts.git
+[submodule "YAIB"]
+	path = YAIB
+	url = git@github.com:heyyjudes/YAIB.git
