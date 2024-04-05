@@ -21,6 +21,7 @@ import argparse
 import sys
 sys.path.append("..")
 import metrics as mt
+import pdb
 
 # CONSTS
 hospital_ids = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
@@ -147,37 +148,48 @@ def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
     # Concatenate the sampled data from all hospitals
     x_all = np.concatenate(x_all, axis=0)
     xy_all = np.concatenate(xy_all, axis=0)
+    print(f"fitting overall density function with {len(x_all)} samples from {len(hids)}")
     cx, _ = mt.init_density_scale(x_all, n_components=n_components)
     cxy, _ = mt.init_density_scale(xy_all, n_components=n_components)
     return cx, cxy
     
 def run_hospital_kl(n_runs=5, n_samples=2000, n_components=3): 
-    cx, cxy = fit_general_density(hospital_ids, n_components=n_components)
     KL_x = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     KL_xy = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     results = {} 
     for run in range(n_runs):
+        # cx, cxy = fit_general_density(hospital_ids, 
+        #                       max_samples=10000,
+        #                       n_components=n_components)
         print(f"iter {run}")
         for i, h1 in enumerate(hospital_ids): 
             x, y, xy = get_hospital(h1, sample_ratio=0.9, rand_seed=run)
-            # already shuffled
-            x, y, xy = x[:n_samples], y[:n_samples], xy[:n_samples]
             # test set 
-            pkdex = mt.init_density(x, cx) 
-            pkdexy = mt.init_density(xy, cxy)             
+            # pdb.set_trace()
+         
             for j, h2 in enumerate(hospital_ids): 
                 if i != j: 
                     print(f"computing {h1} {h2}") 
                     x2, y2, xy2 = get_hospital(h2, sample_ratio=0.9, rand_seed=run)
+                    cx, _ = mt.init_density_scale(np.concatenate((x, x2), axis=0), n_components=n_components)
+                    cxy, _ = mt.init_density_scale(np.concatenate((xy, xy2), axis=0), n_components=n_components)
                     x2, y2, xy2 = x2[:n_samples], y2[:n_samples], xy2[:n_samples]
-                    # training distribution 
+                    # train set
+                    # already shuffled
+                    x, y, xy = x[:n_samples], y[:n_samples], xy[:n_samples]
+                    pkdex = mt.init_density(x, cx) 
+                    pkdexy = mt.init_density(xy, cxy)    
+            
+                    # test set
                     qkdex = mt.init_density(x2, cx)
                     qkdexy = mt.init_density(xy2, cxy)
+                    #pdb.set_trace()
                     KL_x[run, i, j] = mt.entropy_input(x, pkdex, qkdex, cx)
                     KL_xy[run, i, j] = mt.entropy_input(xy, pkdexy, qkdexy, cxy)
+                    print(f"computing {h1} {h2}, kl_xy{KL_xy[run, i, j]}") 
         results['KL_x'] = KL_x
         results['KL_xy'] = KL_xy
-        np.savez(f"YAIB/results/distances/KL-n{n_samples}-c{n_components}.npz", **results)
+        np.savez(f"YAIB/results/distances/KL-n{n_samples}-c{n_components}-pair.npz", **results)
     return 
 
 def main():

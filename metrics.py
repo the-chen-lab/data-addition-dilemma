@@ -187,7 +187,7 @@ def init_density_scale(input_data, n_components=3, standardize=True):
     else: 
         cx = make_pipeline(PCA(n_components=n_components)) 
     data = cx.fit_transform(input_data)
-    params = {"bandwidth": np.logspace(-1, 10, 20)}
+    params = {"bandwidth": np.logspace(-1, 1, 20)}
     grid = GridSearchCV(KernelDensity(), params)
     grid.fit(data)
     kde = grid.best_estimator_
@@ -197,7 +197,7 @@ def init_density_scale(input_data, n_components=3, standardize=True):
 
 def init_density(input_data, c):
     data = c.transform(input_data)
-    params = {"bandwidth": np.logspace(-1, 10, 20)}
+    params = {"bandwidth": np.logspace(-1, 1, 20)}
     grid = GridSearchCV(KernelDensity(), params)
     grid.fit(data)
     kde = grid.best_estimator_
