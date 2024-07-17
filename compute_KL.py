@@ -1,7 +1,7 @@
 # KL Distribution Check
 # python your_script_name.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+#from folktables import ACSDataSource, ACSEmployment, ACSIncome
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -111,7 +111,7 @@ def run_kl_check(mixture=False,
     return 
 
 
-def get_hospital(hid, split='train', sample_ratio=1, rand_seed=42): 
+def get_hospital(hid, split='train', max_samples=None, sample_ratio=1, rand_seed=42): 
     log_dir = f'/home/ubuntu/projects/more-data-more-problems/yaib_logs/eicu/Mortality24/LogisticRegression/'
     file_name =f'train{hid}-test{hid}/data.npz'
     hos = np.load(os.path.join(log_dir, file_name), allow_pickle=True)
@@ -122,6 +122,13 @@ def get_hospital(hid, split='train', sample_ratio=1, rand_seed=42):
         rng = np.random.default_rng(rand_seed)
         ind = rng.choice(len(x), size=int(len(x)*sample_ratio), replace=False)
         return x[ind], y[ind], xy[ind]
+    elif max_samples is not None: 
+        if len(x) > max_samples: 
+            rng = np.random.default_rng(rand_seed)
+            ind = rng.choice(len(x), size=int(max_samples), replace=False)
+            return x[ind], y[ind], xy[ind]
+        else: 
+            return x, y, xy
     else: 
         return x, y, xy
 
