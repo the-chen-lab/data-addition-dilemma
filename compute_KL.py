@@ -1,5 +1,5 @@
 # KL Distribution Check
-# python compute_KL.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3 --dataset folktables
+# python compute_KL.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3 --dataset folktables_exp
 
 import numpy as np
 
@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 
 from sklearn.gaussian_process.kernels import RBF
 from sklearn.pipeline import Pipeline
-from sklearn import metricsj
+from sklearn import metrics
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -19,7 +19,7 @@ import argparse
 
 import sys
 sys.path.append("..")
-from folktables import metrics as mt
+from folktables_exp import metrics as mt
 
 # CONSTS
 HOSPITAL_IDS = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
@@ -111,8 +111,8 @@ def run_kl_check(mixture=False,
 
 
 def get_hospital(hid, split='train', max_samples=None, sample_ratio=1, rand_seed=42): 
-    log_dir = f'/home/ubuntu/projects/more-data-more-problems/yaib_logs/eicu/Mortality24/LogisticRegression/'
-    file_name =f'train{hid}-test{hid}/data.npz'
+    log_dir = f'distance_data'
+    file_name =f'{hid}/data.npz'
     hos = np.load(os.path.join(log_dir, file_name), allow_pickle=True)
     x = hos[split].item()['features']
     y = hos[split].item()['labels']
@@ -224,7 +224,7 @@ def main():
     args = parser.parse_args()
     
     # Call the function using parsed arguments
-    if args.dataset == 'folktables': 
+    if args.dataset == 'folktables_exp':
         run_kl_check(mixture=args.mixture,
                      n_runs=args.n_runs,
                      n_samples=args.n_samples,

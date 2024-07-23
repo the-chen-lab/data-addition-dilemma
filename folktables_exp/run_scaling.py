@@ -1,6 +1,6 @@
 # run data scaling 
 # python run_scaling.py --mixture --n_runs 1 --test_ratio 0.2 --ref_state 'SD' --state 'CA'
-from folktables import ACSDataSource, ACSIncome
+from folktables_exp import ACSDataSource, ACSIncome
 import metrics as mt
 import numpy as np
 

@@ -25,7 +25,7 @@ from sklearn.neighbors import KNeighborsClassifier
 
 from sklearn.ensemble import GradientBoostingClassifier
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables_exp import ACSDataSource, ACSEmployment, ACSIncome
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -224,7 +224,7 @@ def get_yelp_data():
 
 
 def get_folktables_data(cache=True):
-    print('loading folktables data...')
+    print('loading folktables_exp data...')
     # state='SD'
     if not cache:
         all_features = list()
@@ -264,12 +264,12 @@ def get_folktables_data(cache=True):
         states = np.concatenate(all_states)
         years = np.concatenate(all_years)
         
-        f = open('folktables.pk','wb')
+        f = open('folktables_exp.pk','wb')
         pickle.dump((X,y,groups,states,years), f)
         f.close()
         
     else:
-        (X,y,groups,states,years) = pickle.load(open('folktables.pk', 'rb'))
+        (X,y,groups,states,years) = pickle.load(open('folktables_exp.pk', 'rb'))
     
     return X, y, groups, states, years
     
@@ -628,7 +628,7 @@ def part3(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     state=LABEL2
     state_idx = np.where(states == state)[0]
 
-    if 'folktables' in fname:
+    if 'folktables_exp' in fname:
         size_arr = [50, 100, 500, 1000, 2000]
     else:
         start = np.log10(500)
@@ -763,7 +763,7 @@ def part4(X, y, groups, states, years, clf_dict, LABEL1, LABEL2, num_trials=5, f
     state_idx = np.where(states == state)[0]
     state2_idx = np.where(states == state2)[0]
     
-    if 'folktables' in fname:
+    if 'folktables_exp' in fname:
         size_arr = [50, 100, 500, 1000, 2000, 4000, 8000, 12000, 14000]
     else:
         size_arr1 = np.logspace(np.log10(200),np.log10(len(state_idx) * 0.8), 10)
@@ -870,7 +870,7 @@ def run_dip_experiments(data_name):
         START_YEAR = 2006
         X, y, groups, states, years = get_yelp_data()
     
-    elif data_name == 'folktables':
+    elif data_name == 'folktables_exp':
         LABEL1 = 'CA'
         LABEL2 = 'SD'
         START_YEAR = 2014
@@ -893,7 +893,7 @@ def run_dip_experiments(data_name):
 #     part1(X, y, groups, states, years, clf_dict, start_year=START_YEAR, num_trials=5, fname='figures/%s_p1_years.pdf' % data_name, data_name=data_name)
 #     part2(X, y, groups, states, years, clf_dict, LABEL1, num_trials=5, fname='figures/%s_p2_states.pdf' % data_name)
     
-    if data_name == 'folktables':
+    if data_name == 'folktables_exp':
         part3(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p3_moredata.pdf' % data_name)
         part4(X14, y14, groups14, states14, years14, clf_dict, LABEL1, LABEL2, num_trials=5, fname='figures/%s_p4_dip.pdf' % data_name, data_name=data_name)
 

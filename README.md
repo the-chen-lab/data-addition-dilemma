@@ -12,7 +12,7 @@ We also include code for mixture and sequential experiments that appear in our s
 
 ### Folktables
 This datset can be directly downloaded via the python package [Folktables](https://github.com/socialfoundations/folktables). 
-Example commands to generate results for scaling and mixture experiments can be found at the top of each file in [folktables](folktables) directory
+Example commands to generate results for scaling and mixture experiments can be found at the top of each file in [folktables](folktables_exp) directory
 
 ### Yelp Data
 The Yelp dataset consists of reviews and ratings. You can download the Yelp data from [their data website](https://www.yelp.com/dataset/download). If downloading onto a server, the easiest way is to fill out the information and then right-click on "Download JSON" and copy data link address.

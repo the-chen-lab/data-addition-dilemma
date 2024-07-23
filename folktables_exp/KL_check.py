@@ -1,7 +1,7 @@
 # KL Distribution Check
 # python KL_check.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables_exp import ACSDataSource, ACSEmployment, ACSIncome
 import metrics as mt
 import numpy as np
 

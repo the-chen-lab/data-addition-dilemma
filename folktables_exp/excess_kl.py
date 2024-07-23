@@ -1,7 +1,7 @@
 #Excess KL
 # python excess_kl.py --n_samples 5000 --n_runs 3 --excess_kl
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables_exp import ACSDataSource, ACSEmployment, ACSIncome
 import metrics as mt
 import numpy as np
 
