@@ -3,15 +3,15 @@
 This is the code for reproducing results from the paper: [The Data Addition Dilemma](). 
 
 ## ICU Datasets
-We run our experiments using the YAIB framework. The corresponding forked repositories can be founds here: 
-- [YAIB]()
-- [YAIB-Cohorts]()
+We run our main paper experiments using the [eICU Dataset](https://eicu-crd.mit.edu/) using the YAIB framework. The corresponding forked repositories can be founds here: 
+- [YAIB](https://github.com/heyyjudes/YAIB)
+- [YAIB-Cohorts](https://github.com/heyyjudes/YAIB-cohorts) 
 
 ## Other Datasets (Supplementary Materials)  
 We also include code for mixture and sequential experiments that appear in our supplementary materials for three additional datasets.
 
 ### Folktables
-This datset can be directly downloaded via the python package [Folktables](). 
+This datset can be directly downloaded via the python package [Folktables](https://github.com/socialfoundations/folktables). 
 Example commands to generate results for scaling and mixture experiments can be found at the top of each file in [folktables](folktables) directory
 
 ### Yelp Data

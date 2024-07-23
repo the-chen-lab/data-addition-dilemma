@@ -1,6 +1,7 @@
 # run data scaling 
 # python run_scaling.py --mixture --n_runs 1 --test_ratio 0.2 --ref_state 'SD' --state 'CA'
-from folktables import ACSDataSource, ACSIncome, metrics as mt
+from folktables import ACSDataSource, ACSIncome
+import metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -16,6 +17,7 @@ import random
 import argparse
 
 # local libraries
+import os
 import sys
 OTHER_STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
 clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
@@ -35,7 +37,7 @@ def add_data_filter(source_distribution, target_distribution, clf='RF', threshol
     # use random forest to predict whether a sample is from the source or target distribution 
     model = mt.model_choice(clf, X, Y)
     model.fit(X, Y)
-    #print(model.score(target_distribution, np.ones(len(target_distribution))))
+
     y_hat = model.predict_proba(target_distribution)[:, 1] # probability of class 0 (source distribution)
     keep = np.where(y_hat < threshold)[0]
     return keep
@@ -158,20 +160,17 @@ def run_data_scaling(mixture = False,
                 y_hat = model.predict(X_test)
                 corr = y_hat == y_test
                 acc_dict = mt.group_accuracy(corr, group_test)
-                #print(acc_dict)
                 auc_dict = mt.group_auc(
                     y_test, model.predict_proba(X_test)[:, 1], group_test
                 )
-                #print(auc_dict)
-                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval, 
-                                                        y_score=model.predict_proba(X_eval)[:, 1])
+                fpr, tpr, thresholds = metrics.roc_curve(y_true=y_eval,
+                                                         y_score=model.predict_proba(X_eval)[:, 1])
                 opt_thresh = thresholds[np.argmax(tpr - fpr)]
 
                 acc_ot_dict = mt.group_accuracy_ot(y_test, 
                                                    model.predict_proba(X_test)[:, 1], 
                                                    opt_thresh,
                                                    group_test)
-                #print(acc_ot_dict)
                 results.append(
                     {
                         "test_Accuracy": metrics.accuracy_score(y_hat, y_test),
@@ -216,6 +215,8 @@ def run_data_scaling(mixture = False,
         else: 
             filter_str = ""
         ref_states_str = "".join(ref_state)
+        # create directory if one does not exist
+        os.makedirs("../results", exist_ok=True)
         if mixture:
             results_df.to_csv(f"../results/scaling_mixture_a{state}_b{ref_states_str}_n{n_runs}_test{test_ratio}_s{seed}{filter_str}.csv")
         else:
@@ -328,6 +329,7 @@ def scale_years(state="SD",
     results_df = pd.DataFrame(results)
     results_df.to_csv(f"../results/{state}_scaling_n{n_runs}.csv")
     return 
+
 
 def scale_simple(state="CA", n_runs=1): 
     data_source = ACSDataSource(survey_year="2014", horizon="1-Year", survey="person")

@@ -1,7 +1,8 @@
 #Excess KL
-# python excess_kl.py --n_samples 5000 --n_runs 3
+# python excess_kl.py --n_samples 5000 --n_runs 3 --excess_kl
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome, metrics as mt
+from folktables import ACSDataSource, ACSEmployment, ACSIncome
+import metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -19,8 +20,7 @@ import scipy.stats
 import argparse 
 
 import sys
-import os 
-sys.path.append("..")
+import os
 
 # more states 
 # near SD : NE, IA, MN
@@ -30,6 +30,7 @@ sys.path.append("..")
 
 STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
 clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
+
 def run_states(n_runs=1): 
 
     year = "2014"
@@ -125,6 +126,7 @@ def run_states(n_runs=1):
                         }
                     )
     results_df = pd.DataFrame(results)
+    os.makedirs("../results", exist_ok=True)
     results_df.to_csv(f"../results/states_results.csv")
     return results_df
 
@@ -194,7 +196,8 @@ def kl_accuracy(states_df, n_runs=1, n_samples=3000):
                 diff_df["state"] = state
                 diff_df["iter"] = i
                 kl_df = pd.concat((kl_df, diff_df))
-    
+
+        os.makedirs("../results", exist_ok=True)
         kl_df.to_csv(f"../results/kl_shift_n{n_runs}_s{n_samples}.csv")
     return 
                 
@@ -299,6 +302,7 @@ def excess_kl(n_runs=1, n_samples=3000, large_size=12000):
         diff_results["klxy_diff"] = q2_results["kl_testxy"] - q1_results["kl_testxy"]
         diff_results["clf"] = q1_results["clf"]
         diff_results["extra_state"] = q1_results["extra_state"]
+        os.makedirs("../results", exist_ok=True)
         diff_results.to_csv(f"../results/excess_kl_n{n_runs}_s{n_samples}_l{large_size}.csv")
     return 
 

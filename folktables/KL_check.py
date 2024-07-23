@@ -1,7 +1,8 @@
 # KL Distribution Check
 # python KL_check.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome, metrics as mt
+from folktables import ACSDataSource, ACSEmployment, ACSIncome
+import metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -17,9 +18,8 @@ import random
 import scipy.stats
 
 import argparse 
-
+import os
 import sys
-sys.path.append("..")
 
 
 def run_kl_check(mixture=False, 
@@ -100,6 +100,7 @@ def run_kl_check(mixture=False,
             )
 
     results_df = pd.DataFrame(results)
+    os.makedirs("../results", exist_ok=True)
     if mixture:
         results_df.to_csv(f"../results/KL_mixture_{state}_n{n_runs}_samples{n_samples}.csv")
     else:
