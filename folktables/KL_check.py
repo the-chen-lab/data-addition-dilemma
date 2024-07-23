@@ -1,7 +1,7 @@
 # KL Distribution Check
-# python your_script_name.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
+# python KL_check.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables import ACSDataSource, ACSEmployment, ACSIncome, metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -20,7 +20,6 @@ import argparse
 
 import sys
 sys.path.append("..")
-import metrics as mt
 
 
 def run_kl_check(mixture=False, 
@@ -134,6 +133,7 @@ def main():
                  n_samples=args.n_samples,
                  year=args.year,
                  test_ratio=args.test_ratio)
+
 
 if __name__ == "__main__":
     main()

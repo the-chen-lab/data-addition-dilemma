@@ -292,7 +292,7 @@ def get_yelp_mixture_data(num_sources=5):
     # TODO
     min_yr = 2006
     max_yr = 2009
-    source_dir = './'
+    source_dir = '../'
     return X, y, sources, groups
 
 

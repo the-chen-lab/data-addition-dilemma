@@ -275,7 +275,7 @@ def get_folktables_data(cache=True):
     
     
 def get_mimic_data(LABEL1, LABEL2, LABEL_FIELD):    
-    print('loading MIMIC data...')
+    print('loading Yelp-MIMIC data...')
     df = pd.read_csv(mimic_data_dir+'mimic_diagnoses.csv')
     
     df['diagnoses'] = df['diagnoses'].apply(lambda x: x.replace(' <sep> ', ' '))

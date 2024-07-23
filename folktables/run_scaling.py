@@ -1,6 +1,6 @@
 # run data scaling 
-
-from folktables import ACSDataSource, ACSIncome
+# python run_scaling.py --mixture --n_runs 1 --test_ratio 0.2 --ref_state 'SD' --state 'CA'
+from folktables import ACSDataSource, ACSIncome, metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -20,7 +20,7 @@ import sys
 OTHER_STATES = ["SD", "NE", "IA", "MN", "OH", "PA", "MI", "TX", "LA", "GA", "FL", "CA", "SC", "WA", "MA"]
 clf_list = ["LR", "GB", "XGB", "KNN", "NN"]
 sys.path.append("..")
-import metrics as mt
+
 
 def add_data_filter(source_distribution, target_distribution, clf='RF', threshold=0.3):
     """Add a filter to the target distribution to make it more similar to the source distribution.

@@ -1,14 +1,13 @@
 # KL Distribution Check
-# python your_script_name.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3
+# python compute_KL.py --mixture --n_runs 1 --n_samples 5000 --year 2014 --test_ratio 0.3 --dataset folktables
 
-#from folktables import ACSDataSource, ACSEmployment, ACSIncome
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
 
 from sklearn.gaussian_process.kernels import RBF
 from sklearn.pipeline import Pipeline
-from sklearn import metrics
+from sklearn import metricsj
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -20,11 +19,11 @@ import argparse
 
 import sys
 sys.path.append("..")
-import metrics as mt
-import pdb
+from folktables import metrics as mt
 
 # CONSTS
-hospital_ids = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
+HOSPITAL_IDS = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
+
 def run_kl_check(mixture=False, 
                  n_runs=1, 
                  n_samples=3000,
@@ -159,20 +158,22 @@ def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
     cx, _ = mt.init_density_scale(x_all, n_components=n_components)
     cxy, _ = mt.init_density_scale(xy_all, n_components=n_components)
     return cx, cxy
-    
-def run_hospital_kl(n_runs=5, n_samples=2000, n_components=3): 
+
+
+def run_hospital_kl(n_runs=5, n_samples=2000, n_components=3):
+    '''
+
+    '''
     KL_x = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     KL_xy = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     results = {} 
     for run in range(n_runs):
-        # cx, cxy = fit_general_density(hospital_ids, 
+        # cx, cxy = fit_general_density(hospital_ids,
         #                       max_samples=10000,
         #                       n_components=n_components)
         print(f"iter {run}")
         for i, h1 in enumerate(hospital_ids): 
             x, y, xy = get_hospital(h1, sample_ratio=0.9, rand_seed=run)
-            # test set 
-            # pdb.set_trace()
          
             for j, h2 in enumerate(hospital_ids): 
                 if i != j: 
@@ -190,7 +191,7 @@ def run_hospital_kl(n_runs=5, n_samples=2000, n_components=3):
                     # test set
                     qkdex = mt.init_density(x2, cx)
                     qkdexy = mt.init_density(xy2, cxy)
-                    #pdb.set_trace()
+
                     KL_x[run, i, j] = mt.entropy_input(x, pkdex, qkdex, cx)
                     KL_xy[run, i, j] = mt.entropy_input(xy, pkdexy, qkdexy, cxy)
                     print(f"computing {h1} {h2}, kl_xy{KL_xy[run, i, j]}") 
@@ -233,6 +234,7 @@ def main():
         run_hospital_kl(n_runs = args.n_runs, 
                        n_samples=args.n_samples, 
                        n_components=args.n_components)
+
 
 if __name__ == "__main__":
     main()

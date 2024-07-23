@@ -1,7 +1,7 @@
 #Excess KL
 # python excess_kl.py --n_samples 5000 --n_runs 3
 
-from folktables import ACSDataSource, ACSEmployment, ACSIncome
+from folktables import ACSDataSource, ACSEmployment, ACSIncome, metrics as mt
 import numpy as np
 
 from sklearn.model_selection import train_test_split, GridSearchCV
@@ -21,7 +21,6 @@ import argparse
 import sys
 import os 
 sys.path.append("..")
-import metrics as mt
 
 # more states 
 # near SD : NE, IA, MN
@@ -321,9 +320,6 @@ def main():
     
     # Parse the arguments
     args = parser.parse_args()
-    
-
-    
 
     # Call the function using parsed arguments
     if args.state_kl:

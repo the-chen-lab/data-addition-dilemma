@@ -100,14 +100,14 @@ def run_yelp_exp_prep(source_dir, min_yr, max_yr,cache=True):
 def get_yelp_sequential_data():
     min_yr = 2006
     max_yr = 2009
-    source_dir = './'
+    source_dir = '../'
     
     # yelp_seq_data_prep
     # run_yelp_exp_prep(source_dir, min_yr, max_yr):
     biz_file_source = '../yelp-data/yelp_academic_dataset_business.json'
     reviews_file_source = '../yelp-data/yelp_academic_dataset_review.json'
     min_yr, max_yr = 2006, 2010
-    source_dir = './'
+    source_dir = '../'
     
     # yelp_seq_data_prep(biz_file_source, reviews_file_source, max_yr, min_yr)
     X,y,years,groups = run_yelp_exp_prep(source_dir, min_yr, max_yr, cache=True)
