@@ -1,6 +1,6 @@
 # The Data Addition Dilemma 
 
-This is the code for reproducing results from the paper: [The Data Addition Dilemma](). 
+This is the code for reproducing results from the paper: [The Data Addition Dilemma](https://arxiv.org/pdf/2408.04154). 
 
 ## ICU Datasets
 We run our main paper experiments using the [eICU Dataset](https://eicu-crd.mit.edu/) using the YAIB framework. The corresponding forked repositories can be founds here: 
