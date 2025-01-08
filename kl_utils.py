@@ -44,7 +44,7 @@ def get_hospital(hid, input_folder, split='train', max_samples=None, sample_rati
     else: 
         return x, y, xy
 
-def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
+def fit_general_density(hids, input_dir, split='train', max_samples=5000, n_components=3):
     # fit stratified sample density
     num_hospitals = len(hids)
     samples_per_hos = int(max_samples / num_hospitals)
@@ -53,7 +53,7 @@ def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
     xy_all = []
 
     for h in hids:
-        x, y, xy = get_hospital(h, split=split)
+        x, y, xy = get_hospital(h, input_folder=input_dir, split=split)
 
         # Sample from the hospital data
         random_indices = np.random.choice(len(x), size=samples_per_hos, replace=False)
@@ -83,12 +83,12 @@ def run_hospital_kl_density(n_runs=5, n_samples=2000, n_components=3):
         #                       n_components=n_components)
         print(f"iter {run}")
         for i, h1 in enumerate(hospital_ids): 
-            x, y, xy = get_hospital(h1, sample_ratio=0.9, rand_seed=run)
+            x, y, xy = get_hospital(h1, input_folder=input_dir, sample_ratio=0.9, rand_seed=run)
          
             for j, h2 in enumerate(hospital_ids): 
                 if i != j: 
                     print(f"computing {h1} {h2}") 
-                    x2, y2, xy2 = get_hospital(h2, sample_ratio=0.9, rand_seed=run)
+                    x2, y2, xy2 = get_hospital(h2, input_folder=input_dir, sample_ratio=0.9, rand_seed=run)
                     cx, _ = mt.init_density_scale(np.concatenate((x, x2), axis=0), n_components=n_components)
                     cxy, _ = mt.init_density_scale(np.concatenate((xy, xy2), axis=0), n_components=n_components)
                     x2, y2, xy2 = x2[:n_samples], y2[:n_samples], xy2[:n_samples]
@@ -120,8 +120,8 @@ def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
         for i, h in enumerate(hospital_ids):
             hos = test_h
             if h != hos:
-                x, y, xy = get_hospital(h, 'train', max_samples=num_samples)
-                x2, y2, xy2 = get_hospital(hos, 'train', max_samples=num_samples)
+                x, y, xy = get_hospital(h, input_folder=input_dir, split='train', max_samples=num_samples)
+                x2, y2, xy2 = get_hospital(hos, input_folder=input_dir, split='train', max_samples=num_samples)
                 scaler = StandardScaler()
                 logistic = LogisticRegression(max_iter=10000, tol=0.1)
                 pipe = Pipeline(steps=[("scaler", scaler), ("logistic", logistic)])
@@ -131,7 +131,7 @@ def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
 
                 pipe.fit(X_train, Y_train)
 
-                x_val, _, _ = get_hospital(h, 'test')
+                x_val, _, _ = get_hospital(h, input_folder=input_dir, split='test')
                 results_x[i, test_i] = pipe.predict_proba(x_val)[:, 1].mean()
 
                 X_train = np.concatenate((xy, xy2), axis=0)
@@ -139,7 +139,7 @@ def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
 
                 pipe.fit(X_train, Y_train)
 
-                _, _, xy_val = get_hospital(h, 'test')
+                _, _, xy_val = get_hospital(h, input_folder=input_dir, split='test')
                 results_xy[i, test_i] = pipe.predict_proba(xy_val)[:, 1].mean()
 
     save_dir = Path(save_dir)
@@ -157,8 +157,8 @@ def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
         for i, h in enumerate(hospital_ids):
             hos = test_h
             if h != hos:
-                x, y, xy = get_hospital(h, 'train', max_samples=num_samples)
-                x2, y2, xy2 = get_hospital(hos, 'train', max_samples=num_samples)
+                x, y, xy = get_hospital(h, input_folder=input_dir, split='train', max_samples=num_samples)
+                x2, y2, xy2 = get_hospital(hos, input_folder=input_dir, split='train', max_samples=num_samples)
                 scaler = StandardScaler()
                 logistic = LogisticRegression(max_iter=10000, tol=0.1)
                 pipe = Pipeline(steps=[("scaler", scaler), ("logistic", logistic)])
@@ -168,7 +168,7 @@ def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
 
                 pipe.fit(X_train, Y_train)
 
-                x_val, _, _ = get_hospital(h, 'test')
+                x_val, _, _ = get_hospital(h, input_folder=input_dir, split='test')
                 r = pipe.predict_proba(x_val)[:, 1]
                 r = np.clip(r, 0.01, 0.99)
                 s = r / (1 - r)
@@ -179,7 +179,7 @@ def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
 
                 pipe.fit(X_train, Y_train)
 
-                _, _, xy_val = get_hospital(h, 'test')
+                _, _, xy_val = get_hospital(h, input_folder=input_dir, split='test')
                 r = pipe.predict_proba(xy_val)[:, 1]
                 r = np.clip(r, 0.01, 0.99)
                 s = r / (1 - r)
@@ -201,8 +201,8 @@ def compute_addition_score(hospital_ids: list, save_dir: str, num_samples: int=1
         for i, h in enumerate(hospital_ids):
             hos = test_h
             if h != hos:
-                x, y, xy = get_hospital(h, 'train', max_samples=num_samples)
-                x2, y2, xy2 = get_hospital(hos, 'train', max_samples=num_samples)
+                x, y, xy = get_hospital(h, input_folder=input_dir, split='train', max_samples=num_samples)
+                x2, y2, xy2 = get_hospital(hos, input_folder=input_dir, split='train', max_samples=num_samples)
 
                 xhalf1, xhalf2 = partition_array(x2)
                 x = np.concatenate((x, xhalf1), axis=0)
@@ -217,7 +217,7 @@ def compute_addition_score(hospital_ids: list, save_dir: str, num_samples: int=1
 
                 pipe.fit(X_train, Y_train)
 
-                x_val, _, _ = get_hospital(h, 'test')
+                x_val, _, _ = get_hospital(h, input_folder=input_dir, split='test')
                 results_x[i, test_i] = (pipe.predict_log_proba(x_val)[:, 1].mean())
 
                 # fit xy
@@ -228,7 +228,7 @@ def compute_addition_score(hospital_ids: list, save_dir: str, num_samples: int=1
                 Y_train = np.concatenate((np.ones(len(xy)), np.zeros(len(xyhalf2))), axis=0)
 
                 pipe.fit(X_train, Y_train)
-                _, _, xy_val = get_hospital(h, 'test')
+                _, _, xy_val = get_hospital(h, input_folder=input_dir, split='test')
                 results_xy[i, test_i] = (pipe.predict_log_proba(xy_val)[:, 1].mean())
 
     save_dir = Path(save_dir)
