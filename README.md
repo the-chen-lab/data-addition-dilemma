@@ -10,9 +10,9 @@ We run our main paper experiments using the [eICU Dataset](https://eicu-crd.mit.
 ### Divergence Metrics
 To generate divergence metrics for eICU, you first need to extract the 
 data from each hospital. This can be done with the `YAIB/data-addition-scripts/gen_data.sh` script. 
-Once data from all hospitals are saved in the folder `distance_data`, we can then run this script. 
+Once data from all hospitals are saved, we can then run this script. 
 ```
-python kl_utils.py --n_samples 1000 --output_dir distances --score
+python kl_utils.py --n_samples 1000 --output_dir distances --input_dir distance_data --score
 ```
 
 ## Other Datasets (Supplementary Materials)  

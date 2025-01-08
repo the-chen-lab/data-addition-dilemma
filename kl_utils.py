@@ -24,10 +24,9 @@ from folktables_exp import metrics as mt
 # CONSTS
 HOSPITAL_IDS = [73, 264, 420, 243, 338, 443, 199, 458, 300, 188, 252, 167]
 
-def get_hospital(hid, split='train', max_samples=None, sample_ratio=1, rand_seed=42): 
-    log_dir = f'distance_data'
+def get_hospital(hid, input_folder, split='train', max_samples=None, sample_ratio=1, rand_seed=42):
     file_name =f'{hid}/data.npz'
-    hos = np.load(os.path.join(log_dir, file_name), allow_pickle=True)
+    hos = np.load(os.path.join(input_folder, file_name), allow_pickle=True)
     x = hos[split].item()['features']
     y = hos[split].item()['labels']
     xy = np.concatenate((x, y.reshape(-1, 1)), axis=1)
@@ -75,9 +74,6 @@ def fit_general_density(hids, split='train', max_samples=5000, n_components=3):
 
 
 def run_hospital_kl_density(n_runs=5, n_samples=2000, n_components=3):
-    '''
-
-    '''
     KL_x = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     KL_xy = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     results = {} 
@@ -116,7 +112,7 @@ def run_hospital_kl_density(n_runs=5, n_samples=2000, n_components=3):
 
 
 def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
-
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
     print("computing pairwise score distance function")
@@ -248,6 +244,7 @@ def main():
     parser.add_argument('--n_samples', type=int, default=3000,
                         help='Number of samples.')
     parser.add_argument('--output_dir', type=str, default='YAIB/results/distances/')
+    parser.add_argument('--input_dir', type=str, default='hospital_distances/')
     parser.add_argument('--score', action='store_true', default=False)
     parser.add_argument('--kl', action='store_true', default=False)
     parser.add_argument('--addition-score', action='store_true', default=False)
