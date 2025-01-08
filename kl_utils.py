@@ -154,6 +154,7 @@ def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
         np.save(f, results_x)
 
 def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
     for test_i, test_h in enumerate(hospital_ids):
@@ -197,6 +198,7 @@ def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
 
 
 def compute_addition_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
+    Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
     for test_i, test_h in enumerate(hospital_ids):
