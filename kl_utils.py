@@ -73,7 +73,7 @@ def fit_general_density(hids, input_dir, split='train', max_samples=5000, n_comp
     return cx, cxy
 
 
-def run_hospital_kl_density(n_runs=5, n_samples=2000, n_components=3):
+def run_hospital_kl_density(input_dir, n_runs=5, n_samples=2000, n_components=3):
     KL_x = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     KL_xy = np.zeros((n_runs, len(hospital_ids), len(hospital_ids)))
     results = {} 
@@ -111,7 +111,7 @@ def run_hospital_kl_density(n_runs=5, n_samples=2000, n_components=3):
     return 
 
 
-def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
+def compute_score(hospital_ids: list, input_dir: str, save_dir: str, num_samples: int=1000):
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
@@ -149,7 +149,7 @@ def compute_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
     with open(save_dir / 'score-x.npy', 'wb') as f:
         np.save(f, results_x)
 
-def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
+def compute_kl_score(hospital_ids: list, input_dir: str, save_dir: str, num_samples: int=1000):
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
@@ -193,7 +193,7 @@ def compute_kl_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
         np.save(f, results_x)
 
 
-def compute_addition_score(hospital_ids: list, save_dir: str, num_samples: int=1000):
+def compute_addition_score(hospital_ids: list, input_dir: str, save_dir: str, num_samples: int=1000):
     Path(save_dir).mkdir(parents=True, exist_ok=True)
     results_x = np.zeros((len(hospital_ids), len(hospital_ids)))
     results_xy = np.zeros((len(hospital_ids), len(hospital_ids)))
@@ -264,16 +264,19 @@ def main():
     if args.score:
         compute_score(hospital_ids=hospital_ids,
                       save_dir=args.output_dir,
-                      num_samples=args.n_samples,)
+                      num_samples=args.n_samples,
+                      input_dir=args.input_dir)
 
     if args.kl:
         compute_kl_score(hospital_ids=hospital_ids,
-                      save_dir=args.output_dir,
-                      num_samples=args.n_samples,)
+                         save_dir=args.output_dir,
+                         num_samples=args.n_samples,
+                         input_dir=args.input_dir)
     if args.addition_score:
         compute_addition_score(hospital_ids=hospital_ids,
-                      save_dir=args.output_dir,
-                      num_samples=args.n_samples,)
+                               save_dir=args.output_dir,
+                               num_samples=args.n_samples,
+                               input_dir=args.input_dir)
 
 
 def partition_array(arr):
