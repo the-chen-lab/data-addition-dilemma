@@ -1,0 +1,44 @@
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  padding: 24px 0;
+}
+
+.action-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid;
+  background: #fff;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-btn:active {
+  transform: scale(0.92);
+}
+
+.action-btn-no {
+  border-color: #e74c3c;
+  color: #e74c3c;
+}
+
+.action-btn-no:active {
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.15);
+}
+
+.action-btn-yes {
+  border-color: #27ae60;
+  color: #27ae60;
+}
+
+.action-btn-yes:active {
+  box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.15);
+}

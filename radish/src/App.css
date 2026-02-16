@@ -1,0 +1,94 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #faf8f5;
+  color: #333;
+  min-height: 100dvh;
+}
+
+.app {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 16px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading,
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  font-size: 18px;
+  color: #888;
+}
+
+.error p {
+  color: #c0392b;
+}
+
+.error-detail {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #999 !important;
+}
+
+.mode-select {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.mode-title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #222;
+}
+
+.mode-subtitle {
+  font-size: 18px;
+  color: #888;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.mode-btn {
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.mode-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  min-height: 300px;
+}

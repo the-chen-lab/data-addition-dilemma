@@ -1,0 +1,39 @@
+.swipe-card-wrapper {
+  position: absolute;
+  width: 100%;
+  max-width: 400px;
+}
+
+.swipe-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 40px 24px;
+  text-align: center;
+  user-select: none;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.card-location {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+}
+
+.card-name {
+  font-size: 32px;
+  font-weight: 700;
+  color: #222;
+}
+
+.card-source {
+  font-size: 14px;
+  color: #aaa;
+}
