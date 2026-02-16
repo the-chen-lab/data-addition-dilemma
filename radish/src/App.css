@@ -56,11 +56,6 @@ body {
   color: #222;
 }
 
-.mode-subtitle {
-  font-size: 18px;
-  color: #888;
-}
-
 .mode-buttons {
   display: flex;
   gap: 16px;
@@ -82,6 +77,26 @@ body {
 .mode-btn:active {
   transform: scale(0.97);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.1);
+}
+
+
+.top-bar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.undo-btn {
+  font-size: 14px;
+  color: #888;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.undo-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .card-area {

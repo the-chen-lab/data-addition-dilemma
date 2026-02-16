@@ -1,7 +1,8 @@
 .action-buttons {
   display: flex;
   justify-content: center;
-  gap: 32px;
+  align-items: center;
+  gap: 24px;
   padding: 24px 0;
 }
 
@@ -41,4 +42,21 @@
 
 .action-btn-yes:active {
   box-shadow: 0 0 0 4px rgba(39, 174, 96, 0.15);
+}
+
+.action-btn-undo {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  border-color: #bbb;
+  color: #888;
+}
+
+.action-btn-undo:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.action-btn-undo:not(:disabled):active {
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
 }

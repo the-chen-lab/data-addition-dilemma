@@ -2,7 +2,7 @@ import { forwardRef, useImperativeHandle, useRef } from 'react'
 import TinderCard from 'react-tinder-card'
 import './SwipeCard.css'
 
-const SwipeCard = forwardRef(function SwipeCard({ item, onSwipe }, ref) {
+const SwipeCard = forwardRef(function SwipeCard({ item, locationColor, onSwipe }, ref) {
   const tinderCardRef = useRef(null)
 
   useImperativeHandle(ref, () => ({
@@ -17,7 +17,7 @@ const SwipeCard = forwardRef(function SwipeCard({ item, onSwipe }, ref) {
       preventSwipe={['up', 'down']}
     >
       <div className="swipe-card">
-        <div className="card-location">{item.location}</div>
+        <div className="card-location" style={{ color: locationColor }}>{item.location}</div>
         <div className="card-name">{item.name}</div>
         <div className="card-source">{item.order_source}</div>
       </div>

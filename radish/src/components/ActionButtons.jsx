@@ -1,6 +1,6 @@
 import './ActionButtons.css'
 
-export default function ActionButtons({ onSwipe }) {
+export default function ActionButtons({ onSwipe, onUndo, canUndo }) {
   return (
     <div className="action-buttons">
       <button
