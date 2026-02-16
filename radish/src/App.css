@@ -54,6 +54,14 @@ body {
   font-size: 36px;
   font-weight: 700;
   color: #222;
+  text-align: center;
+}
+
+@media (max-width: 500px) {
+  .mode-title {
+    font-size: 28px;
+    padding: 0 16px;
+  }
 }
 
 .mode-buttons {
